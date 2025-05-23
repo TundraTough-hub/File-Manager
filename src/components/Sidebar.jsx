@@ -1,4 +1,4 @@
-// src/components/Sidebar.jsx - Enhanced with client colors and upload/download integration
+// src/components/Sidebar.jsx - Enhanced with FileTemplates and ProjectTemplates
 import { useState } from 'react';
 import { 
   Box, 
@@ -8,6 +8,7 @@ import {
   MenuButton, 
   MenuList, 
   MenuItem, 
+  MenuDivider,
   Button, 
   Input, 
   useDisclosure,
@@ -43,8 +44,11 @@ import {
   FiMoreVertical,
   FiBriefcase,
   FiUser,
+  FiZap,
 } from 'react-icons/fi';
 import EnhancedFileTree from './EnhancedFileTree';
+import FileTemplates from './FileTemplates';
+import { QuickProjectButton } from './ProjectTemplates';
 
 const Sidebar = ({ 
   projects, 
@@ -252,22 +256,30 @@ const Sidebar = ({
       overflowY="auto"
     >
       <VStack align="stretch" spacing={0}>
+        {/* Enhanced Header with Quick Project Button */}
         <Flex 
           justify="space-between" 
           align="center" 
           p={4} 
           borderBottom="1px" 
           borderColor={borderColor}
+          gap={2}
         >
           <Text fontWeight="bold">Projects</Text>
-          <Button 
-            leftIcon={<FiPlus />} 
-            size="sm" 
-            colorScheme="blue"
-            onClick={onNewProjectOpen}
-          >
-            New
-          </Button>
+          <HStack spacing={2}>
+            <Button 
+              leftIcon={<FiPlus />} 
+              size="sm" 
+              colorScheme="blue"
+              onClick={onNewProjectOpen}
+            >
+              New
+            </Button>
+            <QuickProjectButton 
+              onCreateProject={createProject} 
+              clients={clients} 
+            />
+          </HStack>
         </Flex>
         
         <Accordion defaultIndex={[0]} allowMultiple>
@@ -403,12 +415,19 @@ const Sidebar = ({
         
         {projects.length === 0 && (
           <Box p={4} textAlign="center" color="gray.500">
-            <Text>No projects yet. Create a new project to get started.</Text>
+            <VStack spacing={3}>
+              <Text>No projects yet</Text>
+              <Text fontSize="sm">Create a new project or use a template to get started.</Text>
+              <QuickProjectButton 
+                onCreateProject={createProject} 
+                clients={clients} 
+              />
+            </VStack>
           </Box>
         )}
       </VStack>
       
-      {/* All Modals */}
+      {/* All existing modals remain the same */}
       <Modal isOpen={isNewProjectOpen} onClose={onNewProjectClose}>
         <ModalOverlay />
         <ModalContent>
@@ -569,7 +588,7 @@ const Sidebar = ({
   );
 };
 
-// Enhanced Project Item Component with client color integration and upload/download
+// Enhanced Project Item Component with FileTemplates integration
 const ProjectItem = ({
   project,
   nodes,
@@ -646,6 +665,18 @@ const ProjectItem = ({
             color={clientColor?.value || 'gray.500'}
           />
           <MenuList>
+            {/* Add FileTemplates at the top */}
+            <Box px={2} py={1}>
+              <FileTemplates 
+                onCreateFile={createFile}
+                currentFolderId={rootNodeId}
+                projectId={project.id}
+                isDisabled={false}
+              />
+            </Box>
+            <MenuDivider />
+            
+            {/* Existing menu items */}
             <MenuItem 
               icon={<FiPlus />}
               onClick={() => handleCreateFolder()}
@@ -713,27 +744,36 @@ const ProjectItem = ({
         >
           <VStack spacing={3}>
             <Text fontSize="sm" color="gray.500" textAlign="center">
-              This project is empty. Add your first folder or file:
+              This project is empty. Quick start:
             </Text>
-            <HStack spacing={2}>
-              <Button 
-                leftIcon={<FiFolder />} 
-                size="sm" 
-                variant="outline"
-                colorScheme={clientColor?.name?.toLowerCase() || 'gray'}
-                onClick={handleCreateFolder}
-              >
-                Add Folder
-              </Button>
-              <Button 
-                leftIcon={<FiFile />} 
-                size="sm" 
-                variant="outline"
-                colorScheme={clientColor?.name?.toLowerCase() || 'gray'}
-              >
-                Add File
-              </Button>
-            </HStack>
+            <VStack spacing={2} w="100%">
+              <FileTemplates 
+                onCreateFile={createFile}
+                currentFolderId={rootNodeId}
+                projectId={project.id}
+                isDisabled={false}
+              />
+              <HStack spacing={2}>
+                <Button 
+                  leftIcon={<FiFolder />} 
+                  size="sm" 
+                  variant="outline"
+                  colorScheme={clientColor?.name?.toLowerCase() || 'gray'}
+                  onClick={handleCreateFolder}
+                >
+                  Add Folder
+                </Button>
+                <Button 
+                  leftIcon={<FiFile />} 
+                  size="sm" 
+                  variant="outline"
+                  colorScheme={clientColor?.name?.toLowerCase() || 'gray'}
+                  onClick={handleCreateFile}
+                >
+                  Add File
+                </Button>
+              </HStack>
+            </VStack>
           </VStack>
         </Box>
       )}

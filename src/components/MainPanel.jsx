@@ -1,4 +1,4 @@
-// src/components/MainPanel.jsx
+// src/components/MainPanel.jsx - Fixed version
 import { Box, Flex, Heading, Text, Tabs, TabList, Tab, TabPanels, TabPanel } from '@chakra-ui/react';
 import FileEditor from './FileEditor';
 import FileDetails from './FileDetails';
@@ -27,7 +27,7 @@ const MainPanel = ({ selectedNode, nodes }) => {
               
               <TabPanels flex="1" overflowY="auto">
                 <TabPanel h="100%">
-                  <FileEditor nodeId={node.id} />
+                  <FileEditor nodeId={node.id} nodes={nodes} />
                 </TabPanel>
                 <TabPanel>
                   <FileDetails node={node} />

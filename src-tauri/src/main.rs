@@ -1,4 +1,4 @@
-// src-tauri/src/main.rs - Complete enhanced version with all commands
+// src-tauri/src/main.rs - Fixed version with proper command integration
 #![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
