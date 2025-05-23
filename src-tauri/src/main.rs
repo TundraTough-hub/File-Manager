@@ -1,4 +1,4 @@
-// src-tauri/src/main.rs - Fixed version with proper command integration
+// src-tauri/src/main.rs - Updated with modular commands
 #![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
@@ -11,15 +11,17 @@ use std::fs;
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
-            // Core project management
+            // Project management
             commands::load_projects,
             commands::save_projects,
             
-            // File operations
+            // Basic file operations
             commands::create_folder,
             commands::create_file,
             commands::rename_node,
             commands::delete_node,
+            
+            // Content management
             commands::get_file_content,
             commands::save_file_content,
             commands::get_file_stats,
@@ -35,10 +37,19 @@ fn main() {
             commands::show_folder_dialog,
             commands::show_save_dialog,
             
-            // Utility and maintenance commands
+            // Python execution
+            commands::execute_python_file,
+            commands::execute_jupyter_notebook,
+            commands::check_python_installation,
+            commands::install_python_package,
+            
+            // Utility and maintenance
             commands::validate_project_structure,
             commands::cleanup_orphaned_files,
             commands::get_project_size,
+            commands::get_app_info,
+            commands::backup_projects,
+            commands::restore_projects_backup,
         ])
         .setup(|app| {
             // Create app directory structure if it doesn't exist
@@ -48,9 +59,10 @@ fn main() {
             let files_dir = app_dir.join("files");
             let logs_dir = app_dir.join("logs");
             let temp_dir = app_dir.join("temp");
+            let backups_dir = app_dir.join("backups");
             
             // Create all necessary directories
-            let directories = vec![&app_dir, &files_dir, &logs_dir, &temp_dir];
+            let directories = vec![&app_dir, &files_dir, &logs_dir, &temp_dir, &backups_dir];
             
             for dir in directories {
                 if let Err(e) = fs::create_dir_all(dir) {
@@ -67,6 +79,7 @@ fn main() {
             println!("📁 Files directory: {:?}", files_dir);
             println!("📁 Logs directory: {:?}", logs_dir);
             println!("📁 Temp directory: {:?}", temp_dir);
+            println!("📁 Backups directory: {:?}", backups_dir);
             
             // Clean up any old temporary files on startup
             if temp_dir.exists() {
@@ -99,11 +112,11 @@ fn main() {
                                     eprintln!("⚠️ Projects file has invalid format: {}", e);
                                     
                                     // Create backup of corrupted file
-                                    let backup_file = app_dir.join("projects.json.backup");
+                                    let backup_file = backups_dir.join("projects_corrupted_backup.json");
                                     if let Err(backup_err) = fs::copy(&projects_file, &backup_file) {
                                         eprintln!("❌ Failed to create backup: {}", backup_err);
                                     } else {
-                                        println!("💾 Created backup at: {:?}", backup_file);
+                                        println!("💾 Created corrupted file backup at: {:?}", backup_file);
                                     }
                                 }
                             }
