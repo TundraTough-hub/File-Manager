@@ -1,4 +1,4 @@
-// src/components/Sidebar.jsx - Refactored with modular components
+// src/components/sidebar/Sidebar.jsx - Fixed import paths
 import React from 'react';
 import { 
   Box, 
@@ -10,11 +10,11 @@ import {
   useColorModeValue,
 } from '@chakra-ui/react';
 import { FiPlus } from 'react-icons/fi';
-import { QuickProjectButton } from './ProjectTemplates';
-import ProjectList from './sidebar/ProjectList';
-import ProjectModals from './sidebar/ProjectModals';
-import EmptyProjectsState from './sidebar/EmptyProjectsState';
-import { useProjectActions } from './sidebar/hooks/useProjectActions';
+import { QuickProjectButton } from '../ProjectTemplates'; // Fixed: Go up one level to components folder
+import ProjectList from './ProjectList';
+import ProjectModals from './ProjectModals';
+import EmptyProjectsState from './EmptyProjectsState';
+import { useProjectActions } from './hooks/useProjectActions';
 
 const Sidebar = ({ 
   projects, 

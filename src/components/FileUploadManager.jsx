@@ -1,4 +1,4 @@
-// src/components/FileUploadManager.jsx - Complete enhanced version with binary file support
+// src/components/FileUploadManager.jsx - Fixed with proper parent ID handling
 import React, { useState } from 'react';
 import {
   Box,
@@ -41,9 +41,11 @@ import { invoke } from '@tauri-apps/api/tauri';
 
 const FileUploadManager = ({ 
   projectId, 
-  currentFolderId, 
+  currentFolderId,  // This might be the hidden root folder ID
   onFileUploaded, 
-  onFolderUploaded 
+  onFolderUploaded,
+  nodes = [],  // Add nodes prop to help determine correct parent
+  rootId = null  // Add rootId prop
 }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [uploading, setUploading] = useState(false);
@@ -62,34 +64,87 @@ const FileUploadManager = ({
     return true;
   };
 
+  // Helper function to determine the correct parent ID
+  const getCorrectParentId = () => {
+    console.log('🔍 DEBUG: Determining correct parent ID');
+    console.log('🔍 DEBUG: currentFolderId:', currentFolderId);
+    console.log('🔍 DEBUG: rootId:', rootId);
+    console.log('🔍 DEBUG: projectId:', projectId);
+    
+    // If a specific folder is selected and it's not the hidden root, use it
+    if (currentFolderId && currentFolderId !== rootId) {
+      const selectedNode = nodes.find(n => n.id === currentFolderId);
+      console.log('🔍 DEBUG: Selected node:', selectedNode);
+      
+      if (selectedNode && !selectedNode.hidden) {
+        console.log('🔍 DEBUG: Using selected folder as parent:', currentFolderId);
+        return currentFolderId;
+      }
+    }
+    
+    // Otherwise, find the hidden root folder for this project
+    const hiddenRoot = nodes.find(n => 
+      (n.project_id === projectId || n.projectId === projectId) && 
+      (n.hidden === true || n.name === '__PROJECT_ROOT__')
+    );
+    
+    console.log('🔍 DEBUG: Found hidden root:', hiddenRoot);
+    
+    if (hiddenRoot) {
+      console.log('🔍 DEBUG: Using hidden root as parent:', hiddenRoot.id);
+      return hiddenRoot.id;
+    }
+    
+    // Fallback to currentFolderId or null
+    console.log('🔍 DEBUG: Fallback to currentFolderId or null');
+    return currentFolderId || null;
+  };
+
   const handleFileUpload = async () => {
     try {
       setErrors([]);
       setUploading(true);
       setUploadProgress(10);
 
+      console.log('🚀 DEBUG: Starting file upload');
+      console.log('🚀 DEBUG: projectId:', projectId);
+      console.log('🚀 DEBUG: currentFolderId:', currentFolderId);
+      console.log('🚀 DEBUG: Available nodes:', nodes.length);
+
       // Open file dialog
       const filePath = await invoke('show_file_dialog');
       
       if (!filePath) {
+        console.log('🚀 DEBUG: User cancelled file selection');
         setUploading(false);
         setUploadProgress(0);
-        return; // User cancelled
+        return;
       }
+
+      console.log('🚀 DEBUG: Selected file:', filePath);
 
       validateUpload(filePath);
       setUploadProgress(25);
 
-      console.log('📁 Starting file import:', { filePath, projectId, currentFolderId });
+      // Determine the parent folder for the backend call
+      const backendParentFolder = currentFolderId && currentFolderId !== rootId 
+        ? currentFolderId 
+        : '';
+
+      console.log('🚀 DEBUG: Backend parent folder:', backendParentFolder);
 
       // Import the file through backend
       const result = await invoke('import_file', {
         projectId,
-        parentFolder: currentFolderId || '',
+        parentFolder: backendParentFolder,
         sourcePath: filePath,
       });
 
+      console.log('🚀 DEBUG: Backend import result:', result);
       setUploadProgress(75);
+
+      // Determine the correct parent ID for the frontend node
+      const correctParentId = getCorrectParentId();
 
       // Create comprehensive node data for the frontend
       const newNode = {
@@ -97,8 +152,10 @@ const FileUploadManager = ({
         name: result.name,
         type: result.type || 'file',
         extension: result.extension || null,
-        parent_id: currentFolderId || null,
+        parent_id: correctParentId,
+        parentId: correctParentId, // Some components use parentId instead
         project_id: projectId,
+        projectId: projectId, // Some components use projectId instead
         file_path: result.name,
         size: result.size || 0,
         hidden: false,
@@ -106,38 +163,21 @@ const FileUploadManager = ({
         is_binary: result.is_binary || false,
       };
 
+      console.log('🚀 DEBUG: Created newNode:', newNode);
       setUploadProgress(90);
 
-      // Only try to verify content for non-binary files
-      if (!result.is_binary) {
-        try {
-          await invoke('get_file_content', {
-            nodeId: result.node_id,
-            filePath: result.name,
-            projectId: projectId,
-          });
-          console.log('✅ File content verified after import');
-        } catch (contentError) {
-          console.warn('⚠️ File imported but content not accessible:', contentError);
-          // This is not necessarily an error for binary files
-        }
+      setUploadedFiles(prev => [...prev, { ...newNode, uploadTime: new Date() }]);
+
+      // Notify parent component
+      if (onFileUploaded) {
+        console.log('🚀 DEBUG: Calling onFileUploaded with node:', newNode);
+        onFileUploaded(newNode);
+        console.log('🚀 DEBUG: onFileUploaded call completed');
       } else {
-        console.log('📋 Binary file imported successfully:', result.name);
+        console.log('🚀 DEBUG: ERROR - onFileUploaded is not defined!');
       }
 
       setUploadProgress(100);
-      setUploadedFiles(prev => [...prev, { ...newNode, uploadTime: new Date() }]);
-
-      // Notify parent component with proper error handling
-      if (onFileUploaded) {
-        try {
-          await onFileUploaded(newNode);
-          console.log('✅ Parent component notified of file upload');
-        } catch (notifyError) {
-          console.error('❌ Failed to notify parent component:', notifyError);
-          setErrors(prev => [...prev, `Failed to update file list: ${notifyError.message}`]);
-        }
-      }
 
       const fileTypeInfo = result.is_binary ? ' (binary file)' : ' (text file)';
       toast({
@@ -149,7 +189,7 @@ const FileUploadManager = ({
       });
 
     } catch (error) {
-      console.error('❌ Upload failed:', error);
+      console.error('🚀 DEBUG: Upload failed with error:', error);
       const errorMessage = error.toString();
       setErrors(prev => [...prev, errorMessage]);
       
@@ -175,28 +215,40 @@ const FileUploadManager = ({
       setUploading(true);
       setUploadProgress(10);
 
+      console.log('📁 DEBUG: Starting folder upload');
+
       // Open folder dialog
       const folderPath = await invoke('show_folder_dialog');
       
       if (!folderPath) {
+        console.log('📁 DEBUG: User cancelled folder selection');
         setUploading(false);
         setUploadProgress(0);
-        return; // User cancelled
+        return;
       }
+
+      console.log('📁 DEBUG: Selected folder:', folderPath);
 
       validateUpload(folderPath);
       setUploadProgress(25);
 
-      console.log('📁 Starting folder import:', { folderPath, projectId, currentFolderId });
+      // Determine the parent folder for the backend call
+      const backendParentFolder = currentFolderId && currentFolderId !== rootId 
+        ? currentFolderId 
+        : '';
 
       // Import the folder through backend
       const result = await invoke('import_folder', {
         projectId,
-        parentFolder: currentFolderId || '',
+        parentFolder: backendParentFolder,
         sourcePath: folderPath,
       });
 
+      console.log('📁 DEBUG: Backend import result:', result);
       setUploadProgress(75);
+
+      // Determine the correct parent ID for the frontend node
+      const correctParentId = getCorrectParentId();
 
       // Create comprehensive node data for the frontend
       const newNode = {
@@ -204,27 +256,26 @@ const FileUploadManager = ({
         name: result.name,
         type: result.type || 'folder',
         extension: null,
-        parent_id: currentFolderId || null,
+        parent_id: correctParentId,
+        parentId: correctParentId,
         project_id: projectId,
+        projectId: projectId,
         file_path: result.name,
         size: result.size || 0,
         hidden: false,
         shouldRename: false,
-        is_binary: false, // Folders are never binary
+        is_binary: false,
       };
 
+      console.log('📁 DEBUG: Created newNode:', newNode);
       setUploadProgress(100);
       setUploadedFiles(prev => [...prev, { ...newNode, uploadTime: new Date() }]);
 
       // Notify parent component
       if (onFolderUploaded) {
-        try {
-          await onFolderUploaded(newNode);
-          console.log('✅ Parent component notified of folder upload');
-        } catch (notifyError) {
-          console.error('❌ Failed to notify parent component:', notifyError);
-          setErrors(prev => [...prev, `Failed to update folder list: ${notifyError.message}`]);
-        }
+        console.log('📁 DEBUG: Calling onFolderUploaded with node:', newNode);
+        onFolderUploaded(newNode);
+        console.log('📁 DEBUG: onFolderUploaded call completed');
       }
 
       toast({
@@ -236,7 +287,7 @@ const FileUploadManager = ({
       });
 
     } catch (error) {
-      console.error('❌ Folder upload failed:', error);
+      console.error('📁 DEBUG: Folder upload failed:', error);
       const errorMessage = error.toString();
       setErrors(prev => [...prev, errorMessage]);
       
@@ -267,28 +318,13 @@ const FileUploadManager = ({
     const ext = file.extension?.toLowerCase();
     if (!ext) return FiFile;
     
-    // Documents
     if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext)) return FiFileText;
-    
-    // Data files
     if (['csv', 'json', 'xml'].includes(ext)) return FiDatabase;
-    
-    // Code files
     if (['py', 'js', 'html', 'css', 'ipynb'].includes(ext)) return FiCode;
-    
-    // Text files
     if (['txt', 'md'].includes(ext)) return FiFileText;
-    
-    // Images
     if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'bmp', 'webp'].includes(ext)) return FiImage;
-    
-    // Archives
     if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return FiArchive;
-    
-    // Audio
     if (['mp3', 'wav', 'flac', 'ogg', 'aac'].includes(ext)) return FiMusic;
-    
-    // Video
     if (['mp4', 'avi', 'mov', 'wmv', 'webm'].includes(ext)) return FiVideo;
     
     return FiFile;
@@ -300,37 +336,22 @@ const FileUploadManager = ({
     const ext = file.extension?.toLowerCase();
     if (!ext) return 'gray.500';
     
-    // Documents - red/orange
     if (['pdf', 'doc', 'docx'].includes(ext)) return 'red.500';
     if (['xls', 'xlsx'].includes(ext)) return 'green.600';
     if (['ppt', 'pptx'].includes(ext)) return 'orange.500';
-    
-    // Data files - green
     if (['csv'].includes(ext)) return 'green.500';
     if (['json'].includes(ext)) return 'yellow.600';
     if (['xml'].includes(ext)) return 'orange.600';
-    
-    // Code files - blue/purple
     if (['py'].includes(ext)) return 'blue.500';
     if (['js'].includes(ext)) return 'yellow.500';
     if (['html'].includes(ext)) return 'orange.500';
     if (['css'].includes(ext)) return 'blue.400';
     if (['ipynb'].includes(ext)) return 'orange.600';
-    
-    // Text files - gray/blue
     if (['txt'].includes(ext)) return 'gray.600';
     if (['md'].includes(ext)) return 'blue.400';
-    
-    // Images - pink/purple
     if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'bmp', 'webp'].includes(ext)) return 'pink.500';
-    
-    // Archives - brown
     if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'orange.700';
-    
-    // Audio - purple
     if (['mp3', 'wav', 'flac', 'ogg', 'aac'].includes(ext)) return 'purple.500';
-    
-    // Video - red
     if (['mp4', 'avi', 'mov', 'wmv', 'webm'].includes(ext)) return 'red.400';
     
     return 'gray.500';
@@ -343,50 +364,14 @@ const FileUploadManager = ({
     if (!ext) return 'File';
     
     const typeMap = {
-      // Documents
-      'pdf': 'PDF Document',
-      'doc': 'Word Document',
-      'docx': 'Word Document',
-      'xls': 'Excel Spreadsheet',
-      'xlsx': 'Excel Spreadsheet',
-      'ppt': 'PowerPoint',
-      'pptx': 'PowerPoint',
-      
-      // Data
-      'csv': 'CSV Data',
-      'json': 'JSON Data',
-      'xml': 'XML Data',
-      
-      // Code
-      'py': 'Python Script',
-      'js': 'JavaScript',
-      'html': 'HTML Document',
-      'css': 'CSS Stylesheet',
-      'ipynb': 'Jupyter Notebook',
-      
-      // Text
-      'txt': 'Text File',
-      'md': 'Markdown',
-      
-      // Images
-      'jpg': 'JPEG Image',
-      'jpeg': 'JPEG Image',
-      'png': 'PNG Image',
-      'gif': 'GIF Image',
-      'svg': 'SVG Image',
-      
-      // Archives
-      'zip': 'ZIP Archive',
-      'rar': 'RAR Archive',
-      '7z': '7-Zip Archive',
-      
-      // Audio
-      'mp3': 'MP3 Audio',
-      'wav': 'WAV Audio',
-      
-      // Video
-      'mp4': 'MP4 Video',
-      'avi': 'AVI Video',
+      'pdf': 'PDF Document', 'doc': 'Word Document', 'docx': 'Word Document',
+      'xls': 'Excel Spreadsheet', 'xlsx': 'Excel Spreadsheet', 'ppt': 'PowerPoint', 'pptx': 'PowerPoint',
+      'csv': 'CSV Data', 'json': 'JSON Data', 'xml': 'XML Data',
+      'py': 'Python Script', 'js': 'JavaScript', 'html': 'HTML Document', 'css': 'CSS Stylesheet', 'ipynb': 'Jupyter Notebook',
+      'txt': 'Text File', 'md': 'Markdown',
+      'jpg': 'JPEG Image', 'jpeg': 'JPEG Image', 'png': 'PNG Image', 'gif': 'GIF Image', 'svg': 'SVG Image',
+      'zip': 'ZIP Archive', 'rar': 'RAR Archive', '7z': '7-Zip Archive',
+      'mp3': 'MP3 Audio', 'wav': 'WAV Audio', 'mp4': 'MP4 Video', 'avi': 'AVI Video',
     };
     
     return typeMap[ext] || `${ext.toUpperCase()} File`;

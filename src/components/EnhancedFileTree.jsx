@@ -1,4 +1,4 @@
-// src/components/EnhancedFileTree.jsx
+// src/components/EnhancedFileTree.jsx - Fixed to properly handle uploaded files
 import React, { useState } from 'react';
 import { 
   Box, 
@@ -31,13 +31,35 @@ const EnhancedFileTree = ({
   const borderColor = useColorModeValue('gray.200', 'gray.700');
 
   const handleFileUploaded = (newNode) => {
-    // Add the new node to the nodes array
-    setNodes(prevNodes => [...prevNodes, newNode]);
+    console.log('📁 EnhancedFileTree received uploaded file:', newNode);
+    
+    // Add the new node to the nodes array if it doesn't already exist
+    setNodes(prevNodes => {
+      const nodeExists = prevNodes.some(n => n.id === newNode.id);
+      if (nodeExists) {
+        console.log('⚠️ Node already exists, skipping addition');
+        return prevNodes;
+      }
+      
+      console.log('✅ Adding new node to tree');
+      return [...prevNodes, newNode];
+    });
   };
 
   const handleFolderUploaded = (newNode) => {
-    // Add the new folder node to the nodes array
-    setNodes(prevNodes => [...prevNodes, newNode]);
+    console.log('📁 EnhancedFileTree received uploaded folder:', newNode);
+    
+    // Add the new folder node to the nodes array if it doesn't already exist
+    setNodes(prevNodes => {
+      const nodeExists = prevNodes.some(n => n.id === newNode.id);
+      if (nodeExists) {
+        console.log('⚠️ Folder already exists, skipping addition');
+        return prevNodes;
+      }
+      
+      console.log('✅ Adding new folder to tree');
+      return [...prevNodes, newNode];
+    });
   };
 
   const handleNodeSelect = (nodeId) => {
@@ -70,6 +92,8 @@ const EnhancedFileTree = ({
               currentFolderId={selectedNode}
               onFileUploaded={handleFileUploaded}
               onFolderUploaded={handleFolderUploaded}
+              nodes={nodes}
+              rootId={rootId}
             />
             
             <FileDownloadManager

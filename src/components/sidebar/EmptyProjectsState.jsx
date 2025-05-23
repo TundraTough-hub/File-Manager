@@ -7,7 +7,7 @@ import {
   VStack,
   Text,
 } from '@chakra-ui/react';
-import { QuickProjectButton } from '../ProjectTemplates';
+import { QuickProjectButton } from '../ProjectTemplates'; // Fixed: Go up one level to components folder
 
 const EmptyProjectsState = ({ createProject, clients }) => {
   return (

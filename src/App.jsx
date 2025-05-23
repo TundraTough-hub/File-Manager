@@ -1,8 +1,8 @@
-// src/App.jsx - Enhanced with proper state management and file handling
+// src/App.jsx - Fixed import path
 import React from 'react';
 import { ChakraProvider, Flex, Box, Tabs, TabList, Tab, TabPanels, TabPanel } from '@chakra-ui/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Sidebar from './components/Sidebar';
+import Sidebar from './components/sidebar/Sidebar';
 import MainPanel from './components/MainPanel';
 import Toolbar from './components/Toolbar';
 import ClientManager from './components/ClientManager';
@@ -482,7 +482,7 @@ function App() {
     
     try {
       pendingOperationsRef.current.add(operationId);
-      console.log('📁 Processing uploaded file:', uploadedFile);
+      console.log('📁 App.jsx processing uploaded file:', uploadedFile);
       
       // Create the node with proper validation
       const newNode = {
@@ -495,16 +495,20 @@ function App() {
         file_path: uploadedFile.file_path || uploadedFile.name,
         size: uploadedFile.size || 0,
         hidden: false,
+        is_binary: uploadedFile.is_binary || false,
       };
       
       // Add to nodes if not already exists
-      const nodeExists = nodes.some(n => n.id === newNode.id);
-      if (!nodeExists) {
-        setNodes(prevNodes => [...prevNodes, newNode]);
-        console.log('✅ File uploaded and added to nodes');
-      } else {
-        console.log('⚠️ File already exists in nodes');
-      }
+      setNodes(prevNodes => {
+        const nodeExists = prevNodes.some(n => n.id === newNode.id);
+        if (nodeExists) {
+          console.log('⚠️ File already exists in nodes, skipping');
+          return prevNodes;
+        }
+        
+        console.log('✅ Adding uploaded file to nodes array');
+        return [...prevNodes, newNode];
+      });
       
     } catch (error) {
       console.error('❌ Failed to process uploaded file:', error);

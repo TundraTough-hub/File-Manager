@@ -27,8 +27,8 @@ import {
   FiFile,
   FiFolder,
 } from 'react-icons/fi';
-import EnhancedFileTree from '../EnhancedFileTree';
-import FileTemplates from '../FileTemplates';
+import EnhancedFileTree from '../EnhancedFileTree'; // Fixed: Go up one level to components folder
+import FileTemplates from '../FileTemplates'; // Fixed: Go up one level to components folder
 
 const ProjectItem = ({
   project,

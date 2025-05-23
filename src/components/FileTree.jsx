@@ -355,191 +355,90 @@ const FileTree = ({
     }
   };
   
-  const renderNode = (nodeId, depth = 0) => {
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node) return null;
+  // Add this to your FileTree.jsx component at the beginning of the renderNode function
+// This will help us see why uploaded files aren't showing up
+
+const renderNode = (nodeId, depth = 0) => {
+  const node = nodes.find(n => n.id === nodeId);
+  
+  // DEBUG: Detailed logging for the root node
+  if (nodeId === rootId && nodes.length > 0) {
+    console.log('🌳 DEBUG: ==========================================');
+    console.log('🌳 DEBUG: Rendering ROOT node:', nodeId);
+    console.log('🌳 DEBUG: Root node found:', !!node);
+    console.log('🌳 DEBUG: Total nodes:', nodes.length);
+    console.log('🌳 DEBUG: Project ID:', projectId);
     
-    // Skip rendering the hidden root folder but render its children
-    if (node.hidden || node.name === '__PROJECT_ROOT__') {
-      const children = nodes.filter(n => 
-        n.parentId === nodeId || n.parent_id === nodeId
-      );
-      
-      return (
-        <Box key={nodeId}>
-          {children.sort((a, b) => {
+    // Show all nodes for this project
+    const projectNodes = nodes.filter(n => 
+      n.project_id === projectId || n.projectId === projectId
+    );
+    console.log('🌳 DEBUG: Project nodes count:', projectNodes.length);
+    
+    // Show children of the root node (should include uploaded files)
+    const rootChildren = nodes.filter(n => 
+      (n.parent_id === nodeId || n.parentId === nodeId) &&
+      (n.project_id === projectId || n.projectId === projectId)
+    );
+    console.log('🌳 DEBUG: Direct children of root:', rootChildren.length);
+    console.log('🌳 DEBUG: Root children details:', rootChildren.map(c => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+      parent_id: c.parent_id,
+      parentId: c.parentId,
+      hidden: c.hidden
+    })));
+    
+    // Check for the specific uploaded file
+    const uploadedFile = nodes.find(n => n.name === 'Test Word Doc (3).docx');
+    if (uploadedFile) {
+      console.log('🌳 DEBUG: Found uploaded file:', uploadedFile);
+      console.log('🌳 DEBUG: Uploaded file parent_id:', uploadedFile.parent_id);
+      console.log('🌳 DEBUG: Uploaded file parentId:', uploadedFile.parentId);
+      console.log('🌳 DEBUG: Does parent match root?', 
+        uploadedFile.parent_id === nodeId || uploadedFile.parentId === nodeId);
+    } else {
+      console.log('🌳 DEBUG: Uploaded file NOT FOUND in nodes array!');
+    }
+    
+    console.log('🌳 DEBUG: ==========================================');
+  }
+  
+  if (!node) {
+    console.log(`🌳 DEBUG: Node ${nodeId} not found!`);
+    return null;
+  }
+  
+  // Check if this is the hidden root folder
+  if (node.hidden || node.name === '__PROJECT_ROOT__') {
+    console.log(`🌳 DEBUG: Processing hidden root: ${node.name}`);
+    
+    const children = nodes.filter(n => 
+      (n.parentId === nodeId || n.parent_id === nodeId) &&
+      (n.project_id === projectId || n.projectId === projectId)
+    );
+    
+    console.log(`🌳 DEBUG: Hidden root has ${children.length} children to render`);
+    children.forEach(child => {
+      console.log(`🌳 DEBUG: - Child: ${child.name} (${child.type}), hidden: ${child.hidden}`);
+    });
+    
+    return (
+      <Box key={nodeId}>
+        {children
+          .sort((a, b) => {
             if (a.type === 'folder' && b.type !== 'folder') return -1;
             if (a.type !== 'folder' && b.type === 'folder') return 1;
             return a.name.localeCompare(b.name);
-          }).map(child => renderNode(child.id, 0))}
-          
-          {newItemParentId === nodeId && (
-            <Box mt={1}>
-              <Flex align="center">
-                <Icon 
-                  as={newItemType === 'folder' ? FiFolder : FiFile} 
-                  mr={2} 
-                  color={newItemType === 'folder' ? 'yellow.500' : 'blue.500'} 
-                />
-                <Input
-                  size="xs"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  onBlur={handleCreateNewItem}
-                  onKeyDown={(e) => handleKeyDown(e, handleCreateNewItem, handleCancelNewItem)}
-                  ref={newItemInputRef}
-                  width="150px"
-                />
-              </Flex>
-            </Box>
-          )}
-        </Box>
-      );
-    }
-    
-    const children = nodes.filter(n => 
-      n.parentId === nodeId || n.parent_id === nodeId
-    );
-    
-    const isExpanded = expandedNodes.has(nodeId);
-    const isSelected = selectedNode === nodeId;
-    const isRenaming = renameId === nodeId;
-    const isAddingNewItem = newItemParentId === nodeId;
-    
-    const iconColor = getIconColor(node);
-    
-    return (
-      <Box key={nodeId} ml={depth > 0 ? 4 : 0} mt={1}>
-        <Flex 
-          align="center" 
-          py={1}
-          px={2}
-          borderRadius="md"
-          bg={isSelected ? selectedBg : 'transparent'}
-          _hover={{ bg: isSelected ? selectedBg : hoverBg }}
-          cursor="pointer"
-          position="relative"
-          onContextMenu={(e) => handleContextMenu(e, nodeId)}
-          role="group"
-        >
-          {node.type === 'folder' && (
-            <Icon
-              as={isExpanded ? FiChevronDown : FiChevronRight}
-              mr={1}
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleExpand(nodeId);
-              }}
-              cursor="pointer"
-              color="gray.500"
-              _hover={{ color: 'gray.700' }}
-            />
-          )}
-          
-          <Icon as={getNodeIcon(node)} mr={2} color={iconColor} />
-          
-          {isRenaming ? (
-            <Box flex="1">
-              <Input
-                size="xs"
-                value={newName}
-                onChange={(e) => {
-                  setNewName(e.target.value);
-                  setRenameError('');
-                }}
-                onBlur={() => {
-                  if (!renameError) {
-                    handleRename();
-                  }
-                }}
-                onKeyDown={(e) => handleKeyDown(e, handleRename, handleCancelRename)}
-                ref={renameInputRef}
-                width="150px"
-                isInvalid={!!renameError}
-                borderColor={renameError ? 'red.500' : undefined}
-                autoFocus
-              />
-              {renameError && (
-                <Text fontSize="xs" color="red.500" mt={1}>
-                  {renameError}
-                </Text>
-              )}
-            </Box>
-          ) : (
-            <Text
-              flex="1"
-              onClick={() => setSelectedNode(nodeId)}
-              isTruncated
-              fontWeight={isSelected ? "medium" : "normal"}
-              color={isSelected ? "blue.600" : "inherit"}
-              _dark={{
-                color: isSelected ? "blue.300" : "inherit"
-              }}
-            >
-              {node.name}
-            </Text>
-          )}
-          
-          <Menu>
-            <MenuButton
-              as={IconButton}
-              icon={<FiMoreVertical />}
-              variant="ghost"
-              size="xs"
-              onClick={(e) => e.stopPropagation()}
-              opacity="0"
-              _groupHover={{ opacity: 1 }}
-              transition="opacity 0.2s"
-            />
-            <MenuList minW="150px" fontSize="sm">
-              {node.type === 'folder' && (
-                <>
-                  <MenuItem 
-                    icon={<FiPlus />}
-                    onClick={() => handleStartNewItem(nodeId, 'folder')}
-                  >
-                    New Folder
-                  </MenuItem>
-                  <MenuItem 
-                    icon={<FiPlus />}
-                    onClick={() => handleStartNewItem(nodeId, 'file')}
-                  >
-                    New File
-                  </MenuItem>
-                </>
-              )}
-              <MenuItem 
-                icon={<FiEdit />}
-                onClick={() => handleStartRename(node)}
-                isDisabled={isRenaming}
-              >
-                Rename
-              </MenuItem>
-              <MenuItem 
-                icon={<FiMove />}
-                onClick={() => handleStartMove(node)}
-              >
-                Move
-              </MenuItem>
-              <MenuItem 
-                icon={<FiCopy />}
-                onClick={() => handleDuplicate(node)}
-              >
-                Duplicate
-              </MenuItem>
-              <MenuItem 
-                icon={<FiTrash2 />}
-                onClick={() => confirmDelete(nodeId)}
-                color="red.500"
-              >
-                Delete
-              </MenuItem>
-            </MenuList>
-          </Menu>
-        </Flex>
+          })
+          .map(child => {
+            console.log(`🌳 DEBUG: Rendering child: ${child.name}`);
+            return renderNode(child.id, 0);
+          })}
         
-        {isAddingNewItem && (
-          <Box ml={4} mt={1}>
+        {newItemParentId === nodeId && (
+          <Box mt={1}>
             <Flex align="center">
               <Icon 
                 as={newItemType === 'folder' ? FiFolder : FiFile} 
@@ -554,24 +453,191 @@ const FileTree = ({
                 onKeyDown={(e) => handleKeyDown(e, handleCreateNewItem, handleCancelNewItem)}
                 ref={newItemInputRef}
                 width="150px"
-                autoFocus
               />
             </Flex>
           </Box>
         )}
-        
-        {isExpanded && node.type === 'folder' && children.length > 0 && (
-          <Box>
-            {children.sort((a, b) => {
-              if (a.type === 'folder' && b.type !== 'folder') return -1;
-              if (a.type !== 'folder' && b.type === 'folder') return 1;
-              return a.name.localeCompare(b.name);
-            }).map(child => renderNode(child.id, depth + 1))}
-          </Box>
-        )}
       </Box>
     );
-  };
+  }
+  
+  // Regular node rendering continues...
+  const children = nodes.filter(n => 
+    (n.parentId === nodeId || n.parent_id === nodeId) &&
+    (n.project_id === projectId || n.projectId === projectId)
+  );
+  
+  const isExpanded = expandedNodes.has(nodeId);
+  const isSelected = selectedNode === nodeId;
+  const isRenaming = renameId === nodeId;
+  const isAddingNewItem = newItemParentId === nodeId;
+  
+  const iconColor = getIconColor(node);
+  
+  return (
+    <Box key={nodeId} ml={depth > 0 ? 4 : 0} mt={1}>
+      <Flex 
+        align="center" 
+        py={1}
+        px={2}
+        borderRadius="md"
+        bg={isSelected ? selectedBg : 'transparent'}
+        _hover={{ bg: isSelected ? selectedBg : hoverBg }}
+        cursor="pointer"
+        position="relative"
+        onContextMenu={(e) => handleContextMenu(e, nodeId)}
+        role="group"
+      >
+        {node.type === 'folder' && (
+          <Icon
+            as={isExpanded ? FiChevronDown : FiChevronRight}
+            mr={1}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleExpand(nodeId);
+            }}
+            cursor="pointer"
+            color="gray.500"
+            _hover={{ color: 'gray.700' }}
+          />
+        )}
+        
+        <Icon as={getNodeIcon(node)} mr={2} color={iconColor} />
+        
+        {isRenaming ? (
+          <Box flex="1">
+            <Input
+              size="xs"
+              value={newName}
+              onChange={(e) => {
+                setNewName(e.target.value);
+                setRenameError('');
+              }}
+              onBlur={() => {
+                if (!renameError) {
+                  handleRename();
+                }
+              }}
+              onKeyDown={(e) => handleKeyDown(e, handleRename, handleCancelRename)}
+              ref={renameInputRef}
+              width="150px"
+              isInvalid={!!renameError}
+              borderColor={renameError ? 'red.500' : undefined}
+              autoFocus
+            />
+            {renameError && (
+              <Text fontSize="xs" color="red.500" mt={1}>
+                {renameError}
+              </Text>
+            )}
+          </Box>
+        ) : (
+          <Text
+            flex="1"
+            onClick={() => setSelectedNode(nodeId)}
+            isTruncated
+            fontWeight={isSelected ? "medium" : "normal"}
+            color={isSelected ? "blue.600" : "inherit"}
+            _dark={{
+              color: isSelected ? "blue.300" : "inherit"
+            }}
+          >
+            {node.name}
+          </Text>
+        )}
+        
+        <Menu>
+          <MenuButton
+            as={IconButton}
+            icon={<FiMoreVertical />}
+            variant="ghost"
+            size="xs"
+            onClick={(e) => e.stopPropagation()}
+            opacity="0"
+            _groupHover={{ opacity: 1 }}
+            transition="opacity 0.2s"
+          />
+          <MenuList minW="150px" fontSize="sm">
+            {node.type === 'folder' && (
+              <>
+                <MenuItem 
+                  icon={<FiPlus />}
+                  onClick={() => handleStartNewItem(nodeId, 'folder')}
+                >
+                  New Folder
+                </MenuItem>
+                <MenuItem 
+                  icon={<FiPlus />}
+                  onClick={() => handleStartNewItem(nodeId, 'file')}
+                >
+                  New File
+                </MenuItem>
+              </>
+            )}
+            <MenuItem 
+              icon={<FiEdit />}
+              onClick={() => handleStartRename(node)}
+              isDisabled={isRenaming}
+            >
+              Rename
+            </MenuItem>
+            <MenuItem 
+              icon={<FiMove />}
+              onClick={() => handleStartMove(node)}
+            >
+              Move
+            </MenuItem>
+            <MenuItem 
+              icon={<FiCopy />}
+              onClick={() => handleDuplicate(node)}
+            >
+              Duplicate
+            </MenuItem>
+            <MenuItem 
+              icon={<FiTrash2 />}
+              onClick={() => confirmDelete(nodeId)}
+              color="red.500"
+            >
+              Delete
+            </MenuItem>
+          </MenuList>
+        </Menu>
+      </Flex>
+      
+      {isAddingNewItem && (
+        <Box ml={4} mt={1}>
+          <Flex align="center">
+            <Icon 
+              as={newItemType === 'folder' ? FiFolder : FiFile} 
+              mr={2} 
+              color={newItemType === 'folder' ? 'yellow.500' : 'blue.500'} 
+            />
+            <Input
+              size="xs"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              onBlur={handleCreateNewItem}
+              onKeyDown={(e) => handleKeyDown(e, handleCreateNewItem, handleCancelNewItem)}
+              ref={newItemInputRef}
+              width="150px"
+              autoFocus
+            />
+          </Flex>
+        </Box>
+      )}
+      
+      {isExpanded && node.type === 'folder' && children.length > 0 && (
+        <Box>
+          {children.sort((a, b) => {
+            if (a.type === 'folder' && b.type !== 'folder') return -1;
+            if (a.type !== 'folder' && b.type === 'folder') return 1;
+            return a.name.localeCompare(b.name);
+          }).map(child => renderNode(child.id, depth + 1))}
+        </Box>
+      )}
+    </Box>
+  );
+};
   
   const getMoveDestinations = () => {
     const destinations = [];
@@ -858,3 +924,290 @@ const FileTree = ({
 };
 
 export default FileTree;
+
+// Add this debugging to your FileTree.jsx renderNode function
+// Replace the beginning of the renderNode function with this:
+
+const renderNode = (nodeId, depth = 0) => {
+  const node = nodes.find(n => n.id === nodeId);
+  
+  // DEBUG: Add comprehensive logging for root node
+  if (nodeId === rootId) {
+    console.log('🌳 DEBUG: ==========================================');
+    console.log('🌳 DEBUG: Rendering ROOT node:', nodeId);
+    console.log('🌳 DEBUG: Root node found:', !!node);
+    console.log('🌳 DEBUG: Root node details:', node);
+    console.log('🌳 DEBUG: Total nodes count:', nodes.length);
+    console.log('🌳 DEBUG: Project ID:', projectId);
+    
+    // Find all nodes for this project
+    const projectNodes = nodes.filter(n => 
+      n.project_id === projectId || n.projectId === projectId
+    );
+    console.log('🌳 DEBUG: Nodes for this project:', projectNodes.length);
+    console.log('🌳 DEBUG: Project nodes:', projectNodes.map(n => ({
+      id: n.id,
+      name: n.name,
+      type: n.type,
+      parent_id: n.parent_id,
+      parentId: n.parentId,
+      hidden: n.hidden
+    })));
+    
+    // Find children of root node (both parent_id and parentId)
+    const children = nodes.filter(n => 
+      (n.parentId === nodeId || n.parent_id === nodeId) &&
+      (n.project_id === projectId || n.projectId === projectId)
+    );
+    console.log('🌳 DEBUG: Direct children of root:', children.length);
+    console.log('🌳 DEBUG: Children details:', children.map(c => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+      parent_id: c.parent_id,
+      parentId: c.parentId,
+      hidden: c.hidden,
+      project_id: c.project_id,
+      projectId: c.projectId
+    })));
+    
+    // Find files that should be at root level (parent_id matches root)
+    const rootLevelFiles = nodes.filter(n => 
+      (n.parent_id === nodeId || n.parentId === nodeId) &&
+      (n.project_id === projectId || n.projectId === projectId) &&
+      !n.hidden &&
+      n.name !== '__PROJECT_ROOT__'
+    );
+    console.log('🌳 DEBUG: Root level files (should be visible):', rootLevelFiles.length);
+    console.log('🌳 DEBUG: Root level files:', rootLevelFiles.map(f => f.name));
+    console.log('🌳 DEBUG: ==========================================');
+  }
+  
+  if (!node) {
+    console.log(`🌳 DEBUG: Node ${nodeId} not found!`);
+    return null;
+  }
+  
+  // Skip rendering the hidden root folder but render its children
+  if (node.hidden || node.name === '__PROJECT_ROOT__') {
+    console.log(`🌳 DEBUG: Rendering hidden root ${nodeId}, finding children...`);
+    const children = nodes.filter(n => 
+      (n.parentId === nodeId || n.parent_id === nodeId) &&
+      (n.project_id === projectId || n.projectId === projectId)
+    );
+    
+    console.log(`🌳 DEBUG: Hidden root has ${children.length} children`);
+    
+    return (
+      <Box key={nodeId}>
+        {children.sort((a, b) => {
+          if (a.type === 'folder' && b.type !== 'folder') return -1;
+          if (a.type !== 'folder' && b.type === 'folder') return 1;
+          return a.name.localeCompare(b.name);
+        }).map(child => {
+          console.log(`🌳 DEBUG: Rendering child of hidden root: ${child.name} (${child.id})`);
+          return renderNode(child.id, 0);
+        })}
+        
+        {newItemParentId === nodeId && (
+          <Box mt={1}>
+            <Flex align="center">
+              <Icon 
+                as={newItemType === 'folder' ? FiFolder : FiFile} 
+                mr={2} 
+                color={newItemType === 'folder' ? 'yellow.500' : 'blue.500'} 
+              />
+              <Input
+                size="xs"
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                onBlur={handleCreateNewItem}
+                onKeyDown={(e) => handleKeyDown(e, handleCreateNewItem, handleCancelNewItem)}
+                ref={newItemInputRef}
+                width="150px"
+              />
+            </Flex>
+          </Box>
+        )}
+      </Box>
+    );
+  }
+  
+  // Continue with normal node rendering...
+  const children = nodes.filter(n => 
+    (n.parentId === nodeId || n.parent_id === nodeId) &&
+    (n.project_id === projectId || n.projectId === projectId)
+  );
+  
+  const isExpanded = expandedNodes.has(nodeId);
+  const isSelected = selectedNode === nodeId;
+  const isRenaming = renameId === nodeId;
+  const isAddingNewItem = newItemParentId === nodeId;
+  
+  const iconColor = getIconColor(node);
+  
+  return (
+    <Box key={nodeId} ml={depth > 0 ? 4 : 0} mt={1}>
+      <Flex 
+        align="center" 
+        py={1}
+        px={2}
+        borderRadius="md"
+        bg={isSelected ? selectedBg : 'transparent'}
+        _hover={{ bg: isSelected ? selectedBg : hoverBg }}
+        cursor="pointer"
+        position="relative"
+        onContextMenu={(e) => handleContextMenu(e, nodeId)}
+        role="group"
+      >
+        {node.type === 'folder' && (
+          <Icon
+            as={isExpanded ? FiChevronDown : FiChevronRight}
+            mr={1}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleExpand(nodeId);
+            }}
+            cursor="pointer"
+            color="gray.500"
+            _hover={{ color: 'gray.700' }}
+          />
+        )}
+        
+        <Icon as={getNodeIcon(node)} mr={2} color={iconColor} />
+        
+        {isRenaming ? (
+          <Box flex="1">
+            <Input
+              size="xs"
+              value={newName}
+              onChange={(e) => {
+                setNewName(e.target.value);
+                setRenameError('');
+              }}
+              onBlur={() => {
+                if (!renameError) {
+                  handleRename();
+                }
+              }}
+              onKeyDown={(e) => handleKeyDown(e, handleRename, handleCancelRename)}
+              ref={renameInputRef}
+              width="150px"
+              isInvalid={!!renameError}
+              borderColor={renameError ? 'red.500' : undefined}
+              autoFocus
+            />
+            {renameError && (
+              <Text fontSize="xs" color="red.500" mt={1}>
+                {renameError}
+              </Text>
+            )}
+          </Box>
+        ) : (
+          <Text
+            flex="1"
+            onClick={() => setSelectedNode(nodeId)}
+            isTruncated
+            fontWeight={isSelected ? "medium" : "normal"}
+            color={isSelected ? "blue.600" : "inherit"}
+            _dark={{
+              color: isSelected ? "blue.300" : "inherit"
+            }}
+          >
+            {node.name}
+          </Text>
+        )}
+        
+        <Menu>
+          <MenuButton
+            as={IconButton}
+            icon={<FiMoreVertical />}
+            variant="ghost"
+            size="xs"
+            onClick={(e) => e.stopPropagation()}
+            opacity="0"
+            _groupHover={{ opacity: 1 }}
+            transition="opacity 0.2s"
+          />
+          <MenuList minW="150px" fontSize="sm">
+            {node.type === 'folder' && (
+              <>
+                <MenuItem 
+                  icon={<FiPlus />}
+                  onClick={() => handleStartNewItem(nodeId, 'folder')}
+                >
+                  New Folder
+                </MenuItem>
+                <MenuItem 
+                  icon={<FiPlus />}
+                  onClick={() => handleStartNewItem(nodeId, 'file')}
+                >
+                  New File
+                </MenuItem>
+              </>
+            )}
+            <MenuItem 
+              icon={<FiEdit />}
+              onClick={() => handleStartRename(node)}
+              isDisabled={isRenaming}
+            >
+              Rename
+            </MenuItem>
+            <MenuItem 
+              icon={<FiMove />}
+              onClick={() => handleStartMove(node)}
+            >
+              Move
+            </MenuItem>
+            <MenuItem 
+              icon={<FiCopy />}
+              onClick={() => handleDuplicate(node)}
+            >
+              Duplicate
+            </MenuItem>
+            <MenuItem 
+              icon={<FiTrash2 />}
+              onClick={() => confirmDelete(nodeId)}
+              color="red.500"
+            >
+              Delete
+            </MenuItem>
+          </MenuList>
+        </Menu>
+      </Flex>
+      
+      {isAddingNewItem && (
+        <Box ml={4} mt={1}>
+          <Flex align="center">
+            <Icon 
+              as={newItemType === 'folder' ? FiFolder : FiFile} 
+              mr={2} 
+              color={newItemType === 'folder' ? 'yellow.500' : 'blue.500'} 
+            />
+            <Input
+              size="xs"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              onBlur={handleCreateNewItem}
+              onKeyDown={(e) => handleKeyDown(e, handleCreateNewItem, handleCancelNewItem)}
+              ref={newItemInputRef}
+              width="150px"
+              autoFocus
+            />
+          </Flex>
+        </Box>
+      )}
+      
+      {isExpanded && node.type === 'folder' && children.length > 0 && (
+        <Box>
+          {children.sort((a, b) => {
+            if (a.type === 'folder' && b.type !== 'folder') return -1;
+            if (a.type !== 'folder' && b.type === 'folder') return 1;
+            return a.name.localeCompare(b.name);
+          }).map(child => renderNode(child.id, depth + 1))}
+        </Box>
+      )}
+    </Box>
+  );
+};
+    
