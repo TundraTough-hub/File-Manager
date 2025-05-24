@@ -66,24 +66,6 @@ fn build_node_path(
     Ok(full_path)
 }
 
-// Helper function to get the relative path for a node
-fn get_relative_path(
-    app: &AppHandle,
-    parent_id: &str,
-    project_id: &str,
-    name: &str,
-) -> Result<String, String> {
-    let full_path = build_node_path(app, parent_id, project_id, name)?;
-    let project_dir = get_project_dir(app, project_id)?;
-    
-    let relative_path = full_path.strip_prefix(&project_dir)
-        .map_err(|_| "Failed to get relative path".to_string())?
-        .to_string_lossy()
-        .to_string();
-    
-    Ok(relative_path)
-}
-
 #[tauri::command]
 pub async fn create_folder(
     app: AppHandle,
