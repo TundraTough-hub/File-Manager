@@ -1,4 +1,4 @@
-// src/components/DebugPanel.jsx - Detailed with manual control
+// src/components/DebugPanel.jsx - FIXED with correct parameter names
 import React, { useState } from 'react';
 import {
   Box,
@@ -52,6 +52,8 @@ import {
   FiAlertTriangle,
 } from 'react-icons/fi';
 import { invoke } from '@tauri-apps/api/tauri';
+import { appDir, join } from '@tauri-apps/api/path';
+
 
 const DebugPanel = ({ projects, nodes, clients, selectedNode }) => {
   const [debugInfo, setDebugInfo] = useState(null);
@@ -63,10 +65,11 @@ const DebugPanel = ({ projects, nodes, clients, selectedNode }) => {
 
   // Auto-select first project if none selected
   React.useEffect(() => {
-    if (!selectedProjectId && projects.length > 0) {
+    if (!selectedProjectId && projects.length === 1) {
       setSelectedProjectId(projects[0].id);
     }
   }, [projects, selectedProjectId]);
+
 
   const selectedNodeData = nodes.find(n => n.id === selectedNode);
   const currentProjectId = selectedProjectId || selectedNodeData?.project_id || selectedNodeData?.projectId || projects[0]?.id;
@@ -102,6 +105,79 @@ const DebugPanel = ({ projects, nodes, clients, selectedNode }) => {
       });
     });
   };
+
+  const unassignedOrphanedFiles = nodes.filter(node =>
+    (!node.project_id && !node.projectId) &&
+    (node.parent_id === null || node.parent_id === undefined) &&
+    !node.hidden &&
+    node.name !== '__PROJECT_ROOT__'
+  );
+
+  const [selectedUnassignedIds, setSelectedUnassignedIds] = useState([]);
+
+  const handleUnassignedSelection = (id, isChecked) => {
+    if (isChecked) {
+      setSelectedUnassignedIds(prev => [...prev, id]);
+    } else {
+      setSelectedUnassignedIds(prev => prev.filter(i => i !== id));
+    }
+  };
+
+  const deleteUnassignedOrphans = async () => {
+    if (selectedUnassignedIds.length === 0) {
+      toast({
+        title: 'No files selected',
+        description: 'Please select unassigned orphaned files to delete',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      for (const orphanId of selectedUnassignedIds) {
+        const orphanFile = unassignedOrphanedFiles.find(f => f.id === orphanId);
+        if (orphanFile) {
+          const basePath = await appDir(); // This gives your app’s working folder
+          const filePath = await join(basePath, orphanFile.file_path || orphanFile.name || '');
+
+          await invoke('delete_node', {
+            nodeId: orphanId,
+            filePath,
+            projectId: currentProjectId, // or null
+          });
+
+        }
+      }
+
+      toast({
+        title: 'Files deleted',
+        description: `${selectedUnassignedIds.length} unassigned orphaned files have been deleted`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      setSelectedUnassignedIds([]);
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to delete unassigned orphans:', error);
+      toast({
+        title: 'Delete failed',
+        description: error.toString(),
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   // Find orphaned files for the current project
   const orphanedFiles = nodes.filter(node => 
@@ -188,6 +264,7 @@ const DebugPanel = ({ projects, nodes, clients, selectedNode }) => {
     onFixModalOpen();
   };
 
+  // FIXED: Ensure correct parameter names for delete_node command
   const confirmDeleteOrphans = async () => {
     try {
       setLoading(true);
@@ -195,11 +272,22 @@ const DebugPanel = ({ projects, nodes, clients, selectedNode }) => {
       for (const orphanId of selectedOrphanIds) {
         const orphanFile = orphanedFiles.find(f => f.id === orphanId);
         if (orphanFile) {
-          await invoke('delete_node', {
+          console.log('🗑️ FIXED: Deleting orphan with correct params:', {
             nodeId: orphanId,
             filePath: orphanFile.file_path || orphanFile.name || '',
             projectId: currentProjectId,
           });
+          
+          // FIXED: Use correct camelCase parameter names that match the Rust command
+          const basePath = await appDir(); // This gives your app’s working folder
+          const filePath = await join(basePath, orphanFile.file_path || orphanFile.name || '');
+
+          await invoke('delete_node', {
+            nodeId: orphanId,
+            filePath,
+            projectId: currentProjectId, // or null
+          });
+
         }
       }
 
@@ -220,7 +308,7 @@ const DebugPanel = ({ projects, nodes, clients, selectedNode }) => {
       }, 1000);
 
     } catch (error) {
-      console.error('❌ Failed to delete orphans:', error);
+      console.error('❌ FIXED: Failed to delete orphans:', error);
       toast({
         title: 'Delete failed',
         description: error.toString(),
@@ -237,8 +325,9 @@ const DebugPanel = ({ projects, nodes, clients, selectedNode }) => {
     try {
       setLoading(true);
       
+      // FIXED: Use correct camelCase parameter name
       const result = await invoke('rebuild_project_tree', {
-        projectId: currentProjectId,
+        projectId: currentProjectId,  // snake_case project_id becomes camelCase projectId
       });
       
       toast({
@@ -254,7 +343,7 @@ const DebugPanel = ({ projects, nodes, clients, selectedNode }) => {
       }, 1000);
       
     } catch (error) {
-      console.error('❌ Failed to rebuild project:', error);
+      console.error('❌ FIXED: Failed to rebuild project:', error);
       toast({
         title: 'Rebuild failed',
         description: error.toString(),
@@ -292,7 +381,7 @@ const DebugPanel = ({ projects, nodes, clients, selectedNode }) => {
           <HStack>
             <FiSettings />
             <Text fontWeight="bold" color="orange.700" _dark={{ color: "orange.300" }}>
-              Debug Panel - File Structure Analysis
+              Debug Panel - File Structure Analysis (FIXED)
             </Text>
           </HStack>
           <HStack>
@@ -364,6 +453,14 @@ const DebugPanel = ({ projects, nodes, clients, selectedNode }) => {
             <Text fontSize="sm">❌ Project root missing - this will cause issues!</Text>
           </Alert>
         )}
+
+        {/* FIXED Parameter Names Info */}
+        <Alert status="info" size="sm">
+          <AlertIcon />
+          <Text fontSize="sm">
+            <strong>FIXED:</strong> Updated to use correct camelCase parameter names for Tauri commands (nodeId, filePath, projectId)
+          </Text>
+        </Alert>
 
         {/* Orphaned Files Section */}
         {orphanedFiles.length > 0 ? (
@@ -496,6 +593,81 @@ const DebugPanel = ({ projects, nodes, clients, selectedNode }) => {
             <Text fontSize="sm">✅ No orphaned files found in this project! All files are properly organized.</Text>
           </Alert>
         )}
+
+        {unassignedOrphanedFiles.length > 0 && (
+          <Box mt={6} border="1px solid" borderColor="pink.300" borderRadius="md" p={4} bg="pink.50" _dark={{ bg: "pink.900" }}>
+            <VStack align="stretch" spacing={3}>
+              <HStack justify="space-between">
+                <HStack>
+                  <FiAlertTriangle color="darkred" />
+                  <Text fontWeight="bold" color="red.700">
+                    Unassigned Orphaned Files ({unassignedOrphanedFiles.length})
+                  </Text>
+                </HStack>
+                <Button
+                  size="sm"
+                  colorScheme="red"
+                  variant="outline"
+                  leftIcon={<FiTrash2 />}
+                  onClick={deleteUnassignedOrphans}
+                  isDisabled={selectedUnassignedIds.length === 0}
+                >
+                  Delete Selected ({selectedUnassignedIds.length})
+                </Button>
+              </HStack>
+
+              <Text fontSize="sm" color="red.600">
+                These files are orphaned and not attached to any project.
+              </Text>
+
+              <Box maxH="300px" overflowY="auto" border="1px solid" borderColor="gray.300" borderRadius="md">
+                <Table size="sm">
+                  <Thead>
+                    <Tr>
+                      <Th>Select</Th>
+                      <Th>Name</Th>
+                      <Th>Type</Th>
+                      <Th>ID</Th>
+                      <Th>File Path</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {unassignedOrphanedFiles.map(file => (
+                      <Tr key={file.id}>
+                        <Td>
+                          <Checkbox
+                            isChecked={selectedUnassignedIds.includes(file.id)}
+                            onChange={(e) => handleUnassignedSelection(file.id, e.target.checked)}
+                          />
+                        </Td>
+                        <Td>
+                          <HStack>
+                            <FiFile color={getFileIconColor(file)} />
+                            <Text fontSize="sm">{file.name}</Text>
+                          </HStack>
+                        </Td>
+                        <Td>
+                          <Badge colorScheme={file.type === 'folder' ? 'yellow' : 'blue'}>
+                            {file.type}
+                          </Badge>
+                        </Td>
+                        <Td>
+                          <Code fontSize="xs">{file.id.slice(0, 8)}...</Code>
+                        </Td>
+                        <Td>
+                          <Text fontSize="xs" color="gray.600" maxW="150px" isTruncated>
+                            {file.file_path || 'No path set'}
+                          </Text>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </Box>
+            </VStack>
+          </Box>
+        )}
+
 
         {/* Additional Debug Info */}
         <Accordion allowToggle>

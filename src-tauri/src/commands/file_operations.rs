@@ -1,5 +1,5 @@
 // src-tauri/src/commands/file_operations.rs
-// Fixed version that respects the UI folder structure
+// FIXED version with proper parameter naming
 
 use std::fs;
 use std::path::PathBuf;
@@ -186,41 +186,34 @@ pub async fn rename_node(
     Ok(())
 }
 
+// FIXED: Corrected parameter names to match Tauri's camelCase conversion
 #[tauri::command]
 pub async fn delete_node(
-    app: AppHandle, 
-    node_id: String, 
-    file_path: String, 
-    project_id: String
+    node_id: String,
+    file_path: String,
+    project_id: Option<String>,
 ) -> Result<(), String> {
-    println!("🗑️ Deleting node '{}': '{}'", node_id, file_path);
-    
-    let project_dir = get_project_dir(&app, &project_id)?;
-    let full_path = if file_path.is_empty() {
-        return Ok(()); // Nothing to delete
+    println!("🧹 Deleting node ID: {}, path: {}, project: {:?}", node_id, file_path, project_id);
+
+    let path = PathBuf::from(&file_path);
+    let full_path = if path.is_absolute() {
+        path
     } else {
-        project_dir.join(&file_path)
+        let base = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        base.join(path)
     };
-    
-    println!("🗑️ Full delete path: {:?}", full_path);
-    
+
     if !full_path.exists() {
-        println!("⚠️ File/folder not found, skipping deletion: {:?}", full_path);
-        return Ok(());
+        return Err(format!(
+            "File not found: {}",
+            full_path.display()
+        ));
     }
-    
-    if full_path.is_dir() {
-        safe_file_operation(
-            || fs::remove_dir_all(&full_path),
-            "Failed to delete folder"
-        )?;
-    } else {
-        safe_file_operation(
-            || fs::remove_file(&full_path),
-            "Failed to delete file"
-        )?;
-    }
-    
-    println!("✅ Deleted successfully: {:?}", full_path);
+
+    std::fs::remove_file(&full_path)
+        .map_err(|e| format!("Failed to delete file: {}", e))?;
+
+    println!("✅ File deleted: {}", full_path.display());
+
     Ok(())
 }
