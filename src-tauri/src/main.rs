@@ -52,9 +52,9 @@ fn main() {
             commands::restore_projects_backup,
 
             // Add to src-tauri/src/main.rs invoke_handler
-            commands::fetch_url,
-            commands::download_file,
-            commands::scrape_webpage,
+            //commands::fetch_url,
+            //commands::download_file,
+            //commands::scrape_webpage,
         ])
         .setup(|app| {
             // Create app directory structure if it doesn't exist

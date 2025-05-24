@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HttpRequest {
