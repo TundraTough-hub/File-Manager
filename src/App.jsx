@@ -10,6 +10,7 @@ import CodeRunner from './components/CodeRunner';
 import DataFilePreview from './components/DataFilePreview';
 import { invoke } from '@tauri-apps/api/tauri';
 import { v4 as uuidv4 } from 'uuid';
+import FileSyncButton from './components/FileSyncButton';
 
 function App() {
   const [projects, setProjects] = useState([]);
@@ -633,6 +634,36 @@ function App() {
     }
   };
   
+  // Add this function to your App.jsx component (around line 600, near other handlers)
+  const handleFilesSync = async (newFiles) => {
+    const operationId = 'files_sync_' + Date.now();
+    
+    try {
+      pendingOperationsRef.current.add(operationId);
+      console.log('🔄 Processing synced files:', newFiles);
+      
+      // Add the synced files to the nodes array
+      setNodes(prevNodes => {
+        // Filter out any files that might already exist (shouldn't happen, but safe)
+        const existingIds = new Set(prevNodes.map(n => n.id));
+        const newUniqueFiles = newFiles.filter(file => !existingIds.has(file.id));
+        
+        if (newUniqueFiles.length > 0) {
+          console.log('✅ Adding', newUniqueFiles.length, 'new synced files to state');
+          return [...prevNodes, ...newUniqueFiles];
+        }
+        
+        return prevNodes;
+      });
+      
+      console.log('✅ File sync completed successfully');
+    } catch (error) {
+      console.error('❌ Failed to process synced files:', error);
+    } finally {
+      pendingOperationsRef.current.delete(operationId);
+    }
+  };
+
   const renameProject = async (projectId, newName) => {
     const operationId = 'rename_project_' + Date.now();
     
@@ -861,11 +892,33 @@ function App() {
                 </TabPanel>
                 
                 <TabPanel h="100%">
-                  <CodeRunner 
-                    nodes={nodes}
-                    selectedNode={selectedNode}
-                    projects={projects}
-                  />
+                  <VStack spacing={4} align="stretch" h="100%">
+                    {/* Sync Button Row */}
+                    <Box p={4} borderBottom="1px" borderColor="gray.200" _dark={{ borderColor: "gray.700" }}>
+                      <HStack justify="space-between" align="center">
+                        <Text fontSize="lg" fontWeight="medium">Python Code Runner</Text>
+                        <FileSyncButton
+                          projectId={nodes.find(n => n.id === selectedNode)?.project_id || 
+                                    nodes.find(n => n.id === selectedNode)?.projectId}
+                          onFilesSync={handleFilesSync}
+                          nodes={nodes}
+                          currentProject={projects.find(p => 
+                            p.id === (nodes.find(n => n.id === selectedNode)?.project_id || 
+                                    nodes.find(n => n.id === selectedNode)?.projectId)
+                          )}
+                        />
+                      </HStack>
+                    </Box>
+                    
+                    {/* Code Runner Component */}
+                    <Box flex="1" overflow="hidden">
+                      <CodeRunner 
+                        nodes={nodes}
+                        selectedNode={selectedNode}
+                        projects={projects}
+                      />
+                    </Box>
+                  </VStack>
                 </TabPanel>
                 
                 <TabPanel h="100%">

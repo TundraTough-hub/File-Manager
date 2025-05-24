@@ -1,4 +1,4 @@
-// src-tauri/src/main.rs - Updated with modular commands
+// src-tauri/src/main.rs - Updated with Python execution commands
 #![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
@@ -43,6 +43,10 @@ fn main() {
             commands::check_python_installation,
             commands::install_python_package,
             
+            // File sync - NEW COMMANDS
+            commands::sync_external_files,
+            commands::auto_sync_project_files,
+            
             // Utility and maintenance
             commands::validate_project_structure,
             commands::cleanup_orphaned_files,
@@ -50,11 +54,6 @@ fn main() {
             commands::get_app_info,
             commands::backup_projects,
             commands::restore_projects_backup,
-
-            // Add to src-tauri/src/main.rs invoke_handler
-            //commands::fetch_url,
-            //commands::download_file,
-            //commands::scrape_webpage,
         ])
         .setup(|app| {
             // Create app directory structure if it doesn't exist
@@ -85,6 +84,33 @@ fn main() {
             println!("📁 Logs directory: {:?}", logs_dir);
             println!("📁 Temp directory: {:?}", temp_dir);
             println!("📁 Backups directory: {:?}", backups_dir);
+            
+            // Check Python installation on startup
+            println!("🐍 Checking Python installation...");
+            match std::process::Command::new("python").arg("--version").output() {
+                Ok(output) => {
+                    if output.status.success() {
+                        let version = String::from_utf8_lossy(&output.stdout);
+                        println!("✅ Python found: {}", version.trim());
+                    } else {
+                        println!("⚠️ Python command exists but returned error");
+                    }
+                }
+                Err(_) => {
+                    println!("⚠️ Python not found in PATH, trying python3...");
+                    match std::process::Command::new("python3").arg("--version").output() {
+                        Ok(output) => {
+                            if output.status.success() {
+                                let version = String::from_utf8_lossy(&output.stdout);
+                                println!("✅ Python3 found: {}", version.trim());
+                            }
+                        }
+                        Err(_) => {
+                            println!("⚠️ No Python installation detected");
+                        }
+                    }
+                }
+            }
             
             // Clean up any old temporary files on startup
             if temp_dir.exists() {
