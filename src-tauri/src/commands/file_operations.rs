@@ -1,5 +1,5 @@
 // src-tauri/src/commands/file_operations.rs
-// FIXED version with proper parameter naming
+// COMPLETELY FIXED VERSION
 
 use std::fs;
 use std::path::PathBuf;
@@ -186,34 +186,97 @@ pub async fn rename_node(
     Ok(())
 }
 
-// FIXED: Corrected parameter names to match Tauri's camelCase conversion
+// COMPLETELY FIXED delete_node command
 #[tauri::command]
 pub async fn delete_node(
+    app: AppHandle,
     node_id: String,
     file_path: String,
-    project_id: Option<String>,
+    project_id: String,
 ) -> Result<(), String> {
-    println!("🧹 Deleting node ID: {}, path: {}, project: {:?}", node_id, file_path, project_id);
+    println!("🗑️ FIXED: Deleting node ID: {}, path: {}, project: {}", node_id, file_path, project_id);
 
-    let path = PathBuf::from(&file_path);
-    let full_path = if path.is_absolute() {
-        path
+    // Get the project directory
+    let project_dir = get_project_dir(&app, &project_id)?;
+    
+    // Build the full path within the project directory
+    let full_path = if file_path.is_empty() {
+        // If no file_path provided, try to get it from the database
+        let projects_file = get_projects_file(&app)?;
+        if projects_file.exists() {
+            let content = safe_file_operation(
+                || fs::read_to_string(&projects_file),
+                "Failed to read projects file"
+            )?;
+            
+            let data: ProjectData = serde_json::from_str(&content)
+                .map_err(|e| format!("Failed to parse projects data: {}", e))?;
+            
+            // Find the node to get its path
+            if let Some(node) = data.nodes.iter().find(|n| n.id == node_id) {
+                if let Some(path) = &node.file_path {
+                    project_dir.join(path)
+                } else {
+                    project_dir.join(&node.name)
+                }
+            } else {
+                println!("⚠️ Node not found in database: {}", node_id);
+                return Ok(()); // Don't fail if node not in DB
+            }
+        } else {
+            println!("⚠️ Projects file not found");
+            return Ok(()); // Don't fail if no projects file
+        }
     } else {
-        let base = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        base.join(path)
+        // Use the provided file_path
+        project_dir.join(&file_path)
     };
 
+    println!("🗑️ FIXED: Full path to delete: {:?}", full_path);
+
     if !full_path.exists() {
-        return Err(format!(
-            "File not found: {}",
-            full_path.display()
-        ));
+        println!("⚠️ FIXED: File/folder not found on disk: {:?}", full_path);
+        // Don't return an error - the file might already be deleted
+        return Ok(());
     }
 
-    std::fs::remove_file(&full_path)
-        .map_err(|e| format!("Failed to delete file: {}", e))?;
+    // Delete the file or folder
+    if full_path.is_dir() {
+        safe_file_operation(
+            || fs::remove_dir_all(&full_path),
+            "Failed to delete folder"
+        )?;
+        println!("✅ FIXED: Folder deleted: {:?}", full_path);
+    } else {
+        safe_file_operation(
+            || fs::remove_file(&full_path),
+            "Failed to delete file"
+        )?;
+        println!("✅ FIXED: File deleted: {:?}", full_path);
+    }
 
-    println!("✅ File deleted: {}", full_path.display());
+    Ok(())
+}
 
+// Add a new command to delete entire project directories
+#[tauri::command]
+pub async fn delete_project_directory(
+    app: AppHandle,
+    project_id: String,
+) -> Result<(), String> {
+    println!("🗑️ FIXED: Deleting entire project directory for: {}", project_id);
+    
+    let project_dir = get_project_dir(&app, &project_id)?;
+    
+    if project_dir.exists() {
+        safe_file_operation(
+            || fs::remove_dir_all(&project_dir),
+            "Failed to delete project directory"
+        )?;
+        println!("✅ FIXED: Project directory deleted: {:?}", project_dir);
+    } else {
+        println!("⚠️ FIXED: Project directory not found: {:?}", project_dir);
+    }
+    
     Ok(())
 }
