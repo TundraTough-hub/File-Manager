@@ -1,4 +1,4 @@
-// src/components/FileSyncButton.jsx - Component to sync external files
+// src/components/FileSyncButton.jsx - Fixed icon import
 import React, { useState } from 'react';
 import {
   Button,
@@ -27,7 +27,6 @@ import {
 } from '@chakra-ui/react';
 import { 
   FiRefreshCw, 
-  FiSync, 
   FiFile, 
   FiFolder, 
   FiCheck,
@@ -132,7 +131,7 @@ const FileSyncButton = ({
       <HStack spacing={2}>
         <Tooltip label="Sync external files created by Python scripts">
           <Button
-            leftIcon={<FiSync />}
+            leftIcon={<FiRefreshCw />}
             size="sm"
             colorScheme="purple"
             variant="outline"

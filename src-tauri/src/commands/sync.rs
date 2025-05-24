@@ -1,4 +1,4 @@
-// src-tauri/src/commands/sync.rs - NEW FILE
+// src-tauri/src/commands/sync.rs - FIXED VERSION
 // File sync commands to import externally created files
 
 use std::fs;
@@ -72,7 +72,7 @@ pub async fn sync_external_files(
     // If we found new files, save them to the projects file
     if !new_nodes.is_empty() {
         let mut updated_data = existing_data;
-        updated_data.nodes.extend(new_nodes.clone());
+        updated_data.nodes.extend(new_nodes.clone()); // FIXED: Now Node implements Clone
         
         let json = serde_json::to_string_pretty(&updated_data)
             .map_err(|e| format!("Failed to serialize updated data: {}", e))?;
@@ -110,7 +110,7 @@ fn scan_directory_for_new_files(
             .and_then(|name| name.to_str())
             .unwrap_or("unknown");
         
-        // Skip hidden files and system files - FIXED: Use double quotes
+        // FIXED: Use double quotes for string literal
         if file_name.starts_with('.') || file_name.starts_with("__") {
             continue;
         }
@@ -138,14 +138,14 @@ fn scan_directory_for_new_files(
                 parent_id: Some(parent_id.to_string()),
                 project_id: project_id.to_string(),
                 hidden: Some(false),
-                file_path: Some(relative_path),
+                file_path: Some(relative_path.clone()), // FIXED: Clone the value
                 size: None,
                 modified: None,
                 is_binary: None,
             };
             
             new_nodes.push(folder_node);
-            println!("📁 Found new folder: {}", relative_path);
+            println!("📁 Found new folder: {}", relative_path); // FIXED: Now using cloned value
             
             // Recursively scan subdirectory
             scan_directory_for_new_files(&path, &node_id, project_id, existing_paths, new_nodes, base_dir)?;

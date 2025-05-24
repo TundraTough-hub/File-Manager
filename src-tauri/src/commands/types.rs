@@ -18,7 +18,7 @@ pub struct Project {
     pub client_id: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)] // FIXED: Added Clone derive
 pub struct Node {
     pub id: String,
     pub name: String,
@@ -66,7 +66,7 @@ pub struct ImportResult {
     pub extension: Option<String>,
     pub size: u64,
     pub is_binary: bool,
-    pub file_path: Option<String>, // FIXED: Add file_path to ImportResult
+    pub file_path: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
