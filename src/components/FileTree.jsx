@@ -1,4 +1,4 @@
-// src/components/FileTree.jsx - REFACTORED Main Component
+// src/components/FileTree.jsx - CLEANED VERSION (Less Debug Logging)
 import React, { useCallback } from 'react';
 import { 
   Box, 
@@ -95,7 +95,7 @@ const FileTree = ({
   const renderNode = useCallback((nodeId, depth = 0) => {
     const node = nodes.find(n => n.id === nodeId);
     
-    // Debug logging for root node (fixed to prevent infinite loops)
+    // CLEANED: Only debug when specifically needed
     if (nodeId === rootId && nodes.length > 0) {
       debugRootNode(nodeId, rootId, nodes, projectId);
     }
@@ -104,17 +104,15 @@ const FileTree = ({
     
     // Skip rendering the hidden root folder but render its children
     if (node.hidden || node.name === '__PROJECT_ROOT__') {
-      console.log('🌳 DEBUG: Processing hidden root:', node.name);
-      
       const children = nodes.filter(n => 
         (n.parentId === nodeId || n.parent_id === nodeId) &&
         (n.project_id === projectId || n.projectId === projectId)
       );
       
-      console.log(`🌳 DEBUG: Hidden root has ${children.length} children to render`);
-      children.forEach(child => {
-        console.log(`🌳 DEBUG: - Child: ${child.name} (${child.type}), hidden: ${child.hidden}`);
-      });
+      // CLEANED: Only log if there are issues
+      if (children.length === 0) {
+        console.log('⚠️ Hidden root has no children. This might be an issue.');
+      }
       
       return (
         <Box key={nodeId}>
@@ -124,10 +122,7 @@ const FileTree = ({
               if (a.type !== 'folder' && b.type === 'folder') return 1;
               return a.name.localeCompare(b.name);
             })
-            .map(child => {
-              console.log(`🌳 DEBUG: Rendering child: ${child.name}`);
-              return renderNode(child.id, 0);
-            })}
+            .map(child => renderNode(child.id, 0))}
           
           {newItemParentId === nodeId && (
             <Box mt={1}>

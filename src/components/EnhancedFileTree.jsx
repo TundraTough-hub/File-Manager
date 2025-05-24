@@ -1,4 +1,4 @@
-// src/components/EnhancedFileTree.jsx - Fixed to properly handle uploaded files
+// src/components/EnhancedFileTree.jsx - COMPLETELY FIXED VERSION
 import React, { useState } from 'react';
 import { 
   Box, 
@@ -31,33 +31,37 @@ const EnhancedFileTree = ({
   const borderColor = useColorModeValue('gray.200', 'gray.700');
 
   const handleFileUploaded = (newNode) => {
-    console.log('📁 EnhancedFileTree received uploaded file:', newNode);
+    console.log('📁 FIXED: EnhancedFileTree received uploaded file:', newNode);
+    console.log('📁 FIXED: File parent_id:', newNode.parent_id);
+    console.log('📁 FIXED: File project_id:', newNode.project_id);
     
     // Add the new node to the nodes array if it doesn't already exist
     setNodes(prevNodes => {
       const nodeExists = prevNodes.some(n => n.id === newNode.id);
       if (nodeExists) {
-        console.log('⚠️ Node already exists, skipping addition');
+        console.log('⚠️ FIXED: Node already exists, skipping addition');
         return prevNodes;
       }
       
-      console.log('✅ Adding new node to tree');
+      console.log('✅ FIXED: Adding new node to tree with proper parent relationship');
       return [...prevNodes, newNode];
     });
   };
 
   const handleFolderUploaded = (newNode) => {
-    console.log('📁 EnhancedFileTree received uploaded folder:', newNode);
+    console.log('📁 FIXED: EnhancedFileTree received uploaded folder:', newNode);
+    console.log('📁 FIXED: Folder parent_id:', newNode.parent_id);
+    console.log('📁 FIXED: Folder project_id:', newNode.project_id);
     
     // Add the new folder node to the nodes array if it doesn't already exist
     setNodes(prevNodes => {
       const nodeExists = prevNodes.some(n => n.id === newNode.id);
       if (nodeExists) {
-        console.log('⚠️ Folder already exists, skipping addition');
+        console.log('⚠️ FIXED: Folder already exists, skipping addition');
         return prevNodes;
       }
       
-      console.log('✅ Adding new folder to tree');
+      console.log('✅ FIXED: Adding new folder to tree with proper parent relationship');
       return [...prevNodes, newNode];
     });
   };
@@ -75,6 +79,22 @@ const EnhancedFileTree = ({
     });
   };
 
+  // FIXED: Determine the current folder for uploads
+  const getCurrentFolderId = () => {
+    // If a folder is selected in the tree, use that
+    if (selectedNode) {
+      const selectedNodeData = nodes.find(n => n.id === selectedNode);
+      if (selectedNodeData && selectedNodeData.type === 'folder') {
+        console.log('📁 FIXED: Using selected folder as upload target:', selectedNode);
+        return selectedNode;
+      }
+    }
+    
+    // Otherwise, use the project root
+    console.log('📁 FIXED: Using project root as upload target:', rootId);
+    return rootId;
+  };
+
   return (
     <Box>
       {/* Upload/Download Controls */}
@@ -89,11 +109,11 @@ const EnhancedFileTree = ({
           <HStack justify="space-between" wrap="wrap">
             <FileUploadManager
               projectId={projectId}
-              currentFolderId={selectedNode}
+              currentFolderId={getCurrentFolderId()}  // FIXED: Pass the correctly determined folder
               onFileUploaded={handleFileUploaded}
               onFolderUploaded={handleFolderUploaded}
-              nodes={nodes}
-              rootId={rootId}
+              nodes={nodes}  // FIXED: Pass all nodes for parent determination
+              rootId={rootId}  // FIXED: Pass the root ID
             />
             
             <FileDownloadManager

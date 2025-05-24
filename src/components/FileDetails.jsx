@@ -1,4 +1,4 @@
-// src/components/FileDetails.jsx
+// src/components/FileDetails.jsx - FIXED VERSION
 import { Box, VStack, HStack, Text, Badge } from '@chakra-ui/react';
 import { 
   FiFile, 
@@ -16,18 +16,33 @@ const FileDetails = ({ node }) => {
   });
   
   useEffect(() => {
-    getFileStats();
-  }, [node.id]);
+    if (node && node.type === 'file') {
+      getFileStats();
+    }
+  }, [node?.id]);
   
   const getFileStats = async () => {
+    if (!node || node.type !== 'file') return;
+    
     try {
-      const content = await invoke('get_file_content', { nodeId: node.id });
+      // FIXED: Use the correct parameters for get_file_content
+      const content = await invoke('get_file_content', { 
+        nodeId: node.id,
+        filePath: node.file_path || node.name,
+        projectId: node.project_id || node.projectId
+      });
+      
       setFileStats({
         size: new Blob([content]).size,
         modified: new Date(),
       });
     } catch (error) {
       console.error('Failed to get file stats:', error);
+      // Set default stats if we can't get the file content
+      setFileStats({
+        size: node.size || 0,
+        modified: new Date(),
+      });
     }
   };
   
@@ -54,6 +69,9 @@ const FileDetails = ({ node }) => {
       'html': 'HTML File',
       'css': 'CSS File',
       'js': 'JavaScript File',
+      'docx': 'Word Document',
+      'xlsx': 'Excel Spreadsheet',
+      'pdf': 'PDF Document',
     };
     
     return fileTypes[ext] || `${node.extension.toUpperCase()} File`;
@@ -66,6 +84,37 @@ const FileDetails = ({ node }) => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
+  
+  if (!node) {
+    return (
+      <Box p={4} textAlign="center" color="gray.500">
+        <Text>No file selected</Text>
+      </Box>
+    );
+  }
+  
+  if (node.type === 'folder') {
+    return (
+      <Box p={4} borderWidth="1px" borderRadius="md">
+        <VStack align="stretch" spacing={4}>
+          <HStack>
+            <Box as={FiFile} size="24px" color="yellow.500" />
+            <Text fontWeight="bold">{node.name}</Text>
+          </HStack>
+          
+          <Box>
+            <Text fontSize="sm" color="gray.500">Type</Text>
+            <Badge colorScheme="yellow" mt={1}>Folder</Badge>
+          </Box>
+          
+          <Box>
+            <Text fontSize="sm" color="gray.500">Location</Text>
+            <Text fontSize="sm">{node.file_path || node.name}</Text>
+          </Box>
+        </VStack>
+      </Box>
+    );
+  }
   
   return (
     <Box p={4} borderWidth="1px" borderRadius="md">
@@ -86,9 +135,21 @@ const FileDetails = ({ node }) => {
         </Box>
         
         <Box>
+          <Text fontSize="sm" color="gray.500">Location</Text>
+          <Text fontSize="sm">{node.file_path || node.name}</Text>
+        </Box>
+        
+        <Box>
           <Text fontSize="sm" color="gray.500">Last Modified</Text>
           <Text>{fileStats.modified.toLocaleString()}</Text>
         </Box>
+        
+        {node.is_binary && (
+          <Box>
+            <Text fontSize="sm" color="gray.500">File Type</Text>
+            <Badge colorScheme="orange" mt={1}>Binary File</Badge>
+          </Box>
+        )}
       </VStack>
     </Box>
   );

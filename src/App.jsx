@@ -70,6 +70,7 @@ function App() {
     };
   }, [projects, nodes, clients, isLoaded]);
   
+  // Update your existing loadProjects function
   const loadProjects = async () => {
     try {
       isLoadingRef.current = true;
@@ -82,10 +83,13 @@ function App() {
         clients: data.clients?.length || 0
       });
       
+      // MIGRATION: Fix any existing orphaned files
+      const migratedData = migrateExistingData(data);
+      
       // Batch state updates to prevent multiple re-renders
-      setProjects(data.projects || []);
-      setNodes(data.nodes || []);
-      setClients(data.clients || []);
+      setProjects(migratedData.projects || []);
+      setNodes(migratedData.nodes || []);
+      setClients(migratedData.clients || []);
       
       // Mark as loaded after a short delay to ensure all updates complete
       setTimeout(() => {
@@ -98,6 +102,59 @@ function App() {
       console.error('❌ Failed to load projects:', error);
       isLoadingRef.current = false;
       setIsLoaded(true);
+    }
+  };
+
+  // Add this function right after the existing loadProjects function
+  const migrateExistingData = (data) => {
+    console.log('🔧 MIGRATION: Checking for orphaned files to fix...');
+    
+    const { projects, nodes, clients } = data;
+    let migratedNodes = [...nodes];
+    let migrationCount = 0;
+    
+    // Find files/folders with null parent_id that should be in project roots
+    projects.forEach(project => {
+      const projectRootId = project.root_id || project.rootId;
+      const projectId = project.id;
+      
+      if (!projectRootId) return;
+      
+      // Find orphaned nodes for this project (parent_id is null but should be project root)
+      const orphanedNodes = migratedNodes.filter(node => 
+        (node.project_id === projectId || node.projectId === projectId) &&
+        (node.parent_id === null || node.parent_id === undefined) &&
+        !node.hidden &&
+        node.name !== '__PROJECT_ROOT__'
+      );
+      
+      if (orphanedNodes.length > 0) {
+        console.log(`🔧 MIGRATION: Found ${orphanedNodes.length} orphaned nodes in project ${project.name}`);
+        
+        orphanedNodes.forEach(node => {
+          console.log(`🔧 MIGRATION: Fixing orphaned node: ${node.name} -> parent: ${projectRootId}`);
+          
+          // Update the node to have the correct parent
+          migratedNodes = migratedNodes.map(n => 
+            n.id === node.id 
+              ? { 
+                  ...n, 
+                  parent_id: projectRootId,
+                  parentId: projectRootId,
+                }
+              : n
+          );
+          migrationCount++;
+        });
+      }
+    });
+    
+    if (migrationCount > 0) {
+      console.log(`✅ MIGRATION: Fixed ${migrationCount} orphaned files/folders`);
+      return { ...data, nodes: migratedNodes };
+    } else {
+      console.log('✅ MIGRATION: No orphaned files found, data is clean');
+      return data;
     }
   };
   

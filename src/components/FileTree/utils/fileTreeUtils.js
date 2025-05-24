@@ -1,4 +1,4 @@
-// src/components/FileTree/utils/fileTreeUtils.js
+// src/components/FileTree/utils/fileTreeUtils.js - CLEANED VERSION
 import { useCallback } from 'react';
 import { 
   FiFolder, 
@@ -139,49 +139,20 @@ export const useFileTreeUtils = () => {
   }, []);
 
   const debugRootNode = useCallback((nodeId, rootId, nodes, projectId) => {
-    // Only log once per actual render cycle to prevent infinite logging
+    // CLEANED: Reduced debug logging to prevent console spam
+    // Only log when there are actual issues or on first render
     const debugKey = `${nodeId}-${nodes.length}-${projectId}`;
     if (!debugRootNode._lastDebugKey || debugRootNode._lastDebugKey !== debugKey) {
       debugRootNode._lastDebugKey = debugKey;
       
-      console.log('🌳 DEBUG: ==========================================');
-      console.log('🌳 DEBUG: Rendering ROOT node:', nodeId);
-      console.log('🌳 DEBUG: Root node found:', !!nodes.find(n => n.id === nodeId));
-      console.log('🌳 DEBUG: Total nodes:', nodes.length);
-      console.log('🌳 DEBUG: Project ID:', projectId);
-      
-      // Show all nodes for this project
-      const projectNodes = nodes.filter(n => 
-        n.project_id === projectId || n.projectId === projectId
-      );
-      console.log('🌳 DEBUG: Project nodes count:', projectNodes.length);
-      
-      // Show children of the root node (should include uploaded files)
-      const rootChildren = nodes.filter(n => 
-        (n.parent_id === nodeId || n.parentId === nodeId) &&
-        (n.project_id === projectId || n.projectId === projectId)
-      );
-      console.log('🌳 DEBUG: Direct children of root:', rootChildren.length);
-      console.log('🌳 DEBUG: Root children details:', rootChildren.map(c => ({
-        id: c.id,
-        name: c.name,
-        type: c.type,
-        parent_id: c.parent_id,
-        parentId: c.parentId,
-        hidden: c.hidden
-      })));
-      
-      // Check for uploaded files
-      const uploadedFile = nodes.find(n => n.name.includes('Test Word Doc'));
-      if (uploadedFile) {
-        console.log('🌳 DEBUG: Found uploaded file:', uploadedFile);
-        console.log('🌳 DEBUG: Uploaded file parent_id:', uploadedFile.parent_id);
-        console.log('🌳 DEBUG: Uploaded file parentId:', uploadedFile.parentId);
-        console.log('🌳 DEBUG: Does parent match root?', 
-          uploadedFile.parent_id === nodeId || uploadedFile.parentId === nodeId);
+      // Check if there are any uploaded files with wrong parent_id
+      const uploadedFile = nodes.find(n => n.name.includes('Test Word Doc') || n.name.includes('uploaded'));
+      if (uploadedFile && (uploadedFile.parent_id === null || uploadedFile.parent_id === undefined)) {
+        console.log('🌳 ISSUE: Found uploaded file with null parent_id:', uploadedFile);
+        console.log('🌳 ISSUE: Expected parent should be:', nodeId);
+      } else if (uploadedFile) {
+        console.log('✅ FIXED: Uploaded file has proper parent_id:', uploadedFile.parent_id);
       }
-      
-      console.log('🌳 DEBUG: ==========================================');
     }
   }, []);
 

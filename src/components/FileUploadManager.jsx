@@ -1,4 +1,4 @@
-// src/components/FileUploadManager.jsx - Fixed with proper parent ID handling
+// src/components/FileUploadManager.jsx - COMPLETELY FIXED VERSION
 import React, { useState } from 'react';
 import {
   Box,
@@ -41,11 +41,11 @@ import { invoke } from '@tauri-apps/api/tauri';
 
 const FileUploadManager = ({ 
   projectId, 
-  currentFolderId,  // This might be the hidden root folder ID
+  currentFolderId,  // This might be the selected folder in the UI
   onFileUploaded, 
   onFolderUploaded,
-  nodes = [],  // Add nodes prop to help determine correct parent
-  rootId = null  // Add rootId prop
+  nodes = [],  // All nodes to help determine correct parent
+  rootId = null  // Project root ID
 }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [uploading, setUploading] = useState(false);
@@ -64,40 +64,40 @@ const FileUploadManager = ({
     return true;
   };
 
-  // Helper function to determine the correct parent ID
+  // FIXED: Helper function to determine the correct parent ID for the frontend
   const getCorrectParentId = () => {
-    console.log('🔍 DEBUG: Determining correct parent ID');
-    console.log('🔍 DEBUG: currentFolderId:', currentFolderId);
-    console.log('🔍 DEBUG: rootId:', rootId);
-    console.log('🔍 DEBUG: projectId:', projectId);
+    console.log('🔍 FIXED: Determining correct parent ID');
+    console.log('🔍 FIXED: currentFolderId:', currentFolderId);
+    console.log('🔍 FIXED: rootId:', rootId);
+    console.log('🔍 FIXED: projectId:', projectId);
     
-    // If a specific folder is selected and it's not the hidden root, use it
+    // If we have a selected folder that's not the hidden root, use it
     if (currentFolderId && currentFolderId !== rootId) {
       const selectedNode = nodes.find(n => n.id === currentFolderId);
-      console.log('🔍 DEBUG: Selected node:', selectedNode);
+      console.log('🔍 FIXED: Selected node:', selectedNode);
       
-      if (selectedNode && !selectedNode.hidden) {
-        console.log('🔍 DEBUG: Using selected folder as parent:', currentFolderId);
+      if (selectedNode && selectedNode.type === 'folder' && !selectedNode.hidden) {
+        console.log('🔍 FIXED: Using selected visible folder as parent:', currentFolderId);
         return currentFolderId;
       }
     }
     
-    // Otherwise, find the hidden root folder for this project
+    // Find the hidden root folder for this project
     const hiddenRoot = nodes.find(n => 
       (n.project_id === projectId || n.projectId === projectId) && 
       (n.hidden === true || n.name === '__PROJECT_ROOT__')
     );
     
-    console.log('🔍 DEBUG: Found hidden root:', hiddenRoot);
+    console.log('🔍 FIXED: Found hidden root:', hiddenRoot);
     
     if (hiddenRoot) {
-      console.log('🔍 DEBUG: Using hidden root as parent:', hiddenRoot.id);
+      console.log('🔍 FIXED: Using hidden root as parent:', hiddenRoot.id);
       return hiddenRoot.id;
     }
     
-    // Fallback to currentFolderId or null
-    console.log('🔍 DEBUG: Fallback to currentFolderId or null');
-    return currentFolderId || null;
+    // This shouldn't happen, but fallback to null
+    console.log('🔍 FIXED: No suitable parent found, using null');
+    return null;
   };
 
   const handleFileUpload = async () => {
@@ -106,32 +106,31 @@ const FileUploadManager = ({
       setUploading(true);
       setUploadProgress(10);
 
-      console.log('🚀 DEBUG: Starting file upload');
-      console.log('🚀 DEBUG: projectId:', projectId);
-      console.log('🚀 DEBUG: currentFolderId:', currentFolderId);
-      console.log('🚀 DEBUG: Available nodes:', nodes.length);
+      console.log('🚀 FIXED: Starting file upload');
+      console.log('🚀 FIXED: projectId:', projectId);
+      console.log('🚀 FIXED: currentFolderId:', currentFolderId);
+      console.log('🚀 FIXED: Available nodes:', nodes.length);
 
       // Open file dialog
       const filePath = await invoke('show_file_dialog');
       
       if (!filePath) {
-        console.log('🚀 DEBUG: User cancelled file selection');
+        console.log('🚀 FIXED: User cancelled file selection');
         setUploading(false);
         setUploadProgress(0);
         return;
       }
 
-      console.log('🚀 DEBUG: Selected file:', filePath);
+      console.log('🚀 FIXED: Selected file:', filePath);
 
       validateUpload(filePath);
       setUploadProgress(25);
 
-      // Determine the parent folder for the backend call
-      const backendParentFolder = currentFolderId && currentFolderId !== rootId 
-        ? currentFolderId 
-        : '';
+      // FIXED: For the backend call, we'll pass empty string to indicate project root
+      // The backend will handle placing the file in the correct location
+      const backendParentFolder = '';
 
-      console.log('🚀 DEBUG: Backend parent folder:', backendParentFolder);
+      console.log('🚀 FIXED: Backend parent folder (empty = project root):', backendParentFolder);
 
       // Import the file through backend
       const result = await invoke('import_file', {
@@ -140,41 +139,42 @@ const FileUploadManager = ({
         sourcePath: filePath,
       });
 
-      console.log('🚀 DEBUG: Backend import result:', result);
+      console.log('🚀 FIXED: Backend import result:', result);
       setUploadProgress(75);
 
-      // Determine the correct parent ID for the frontend node
+      // FIXED: Determine the correct parent ID for the frontend node
       const correctParentId = getCorrectParentId();
 
-      // Create comprehensive node data for the frontend
+      // FIXED: Create comprehensive node data for the frontend
       const newNode = {
         id: result.node_id,
         name: result.name,
         type: result.type || 'file',
         extension: result.extension || null,
-        parent_id: correctParentId,
-        parentId: correctParentId, // Some components use parentId instead
+        parent_id: correctParentId,  // FIXED: Use the determined parent ID
+        parentId: correctParentId,   // FIXED: Both variants for compatibility
         project_id: projectId,
-        projectId: projectId, // Some components use projectId instead
-        file_path: result.name,
+        projectId: projectId,
+        file_path: result.file_path || result.name,  // FIXED: Use backend-provided path
         size: result.size || 0,
         hidden: false,
         shouldRename: false,
         is_binary: result.is_binary || false,
       };
 
-      console.log('🚀 DEBUG: Created newNode:', newNode);
+      console.log('🚀 FIXED: Created newNode with parent_id:', newNode.parent_id);
+      console.log('🚀 FIXED: Full newNode:', newNode);
       setUploadProgress(90);
 
       setUploadedFiles(prev => [...prev, { ...newNode, uploadTime: new Date() }]);
 
       // Notify parent component
       if (onFileUploaded) {
-        console.log('🚀 DEBUG: Calling onFileUploaded with node:', newNode);
+        console.log('🚀 FIXED: Calling onFileUploaded with properly parented node');
         onFileUploaded(newNode);
-        console.log('🚀 DEBUG: onFileUploaded call completed');
+        console.log('🚀 FIXED: onFileUploaded call completed');
       } else {
-        console.log('🚀 DEBUG: ERROR - onFileUploaded is not defined!');
+        console.log('🚀 FIXED: ERROR - onFileUploaded is not defined!');
       }
 
       setUploadProgress(100);
@@ -189,7 +189,7 @@ const FileUploadManager = ({
       });
 
     } catch (error) {
-      console.error('🚀 DEBUG: Upload failed with error:', error);
+      console.error('🚀 FIXED: Upload failed with error:', error);
       const errorMessage = error.toString();
       setErrors(prev => [...prev, errorMessage]);
       
@@ -215,27 +215,25 @@ const FileUploadManager = ({
       setUploading(true);
       setUploadProgress(10);
 
-      console.log('📁 DEBUG: Starting folder upload');
+      console.log('📁 FIXED: Starting folder upload');
 
       // Open folder dialog
       const folderPath = await invoke('show_folder_dialog');
       
       if (!folderPath) {
-        console.log('📁 DEBUG: User cancelled folder selection');
+        console.log('📁 FIXED: User cancelled folder selection');
         setUploading(false);
         setUploadProgress(0);
         return;
       }
 
-      console.log('📁 DEBUG: Selected folder:', folderPath);
+      console.log('📁 FIXED: Selected folder:', folderPath);
 
       validateUpload(folderPath);
       setUploadProgress(25);
 
-      // Determine the parent folder for the backend call
-      const backendParentFolder = currentFolderId && currentFolderId !== rootId 
-        ? currentFolderId 
-        : '';
+      // FIXED: For the backend call, use empty string for project root
+      const backendParentFolder = '';
 
       // Import the folder through backend
       const result = await invoke('import_folder', {
@@ -244,38 +242,39 @@ const FileUploadManager = ({
         sourcePath: folderPath,
       });
 
-      console.log('📁 DEBUG: Backend import result:', result);
+      console.log('📁 FIXED: Backend import result:', result);
       setUploadProgress(75);
 
-      // Determine the correct parent ID for the frontend node
+      // FIXED: Determine the correct parent ID for the frontend node
       const correctParentId = getCorrectParentId();
 
-      // Create comprehensive node data for the frontend
+      // FIXED: Create comprehensive node data for the frontend
       const newNode = {
         id: result.node_id,
         name: result.name,
         type: result.type || 'folder',
         extension: null,
-        parent_id: correctParentId,
-        parentId: correctParentId,
+        parent_id: correctParentId,  // FIXED: Use the determined parent ID
+        parentId: correctParentId,   // FIXED: Both variants for compatibility
         project_id: projectId,
         projectId: projectId,
-        file_path: result.name,
+        file_path: result.file_path || result.name,  // FIXED: Use backend-provided path
         size: result.size || 0,
         hidden: false,
         shouldRename: false,
         is_binary: false,
       };
 
-      console.log('📁 DEBUG: Created newNode:', newNode);
+      console.log('📁 FIXED: Created newNode with parent_id:', newNode.parent_id);
+      console.log('📁 FIXED: Full newNode:', newNode);
       setUploadProgress(100);
       setUploadedFiles(prev => [...prev, { ...newNode, uploadTime: new Date() }]);
 
       // Notify parent component
       if (onFolderUploaded) {
-        console.log('📁 DEBUG: Calling onFolderUploaded with node:', newNode);
+        console.log('📁 FIXED: Calling onFolderUploaded with properly parented node');
         onFolderUploaded(newNode);
-        console.log('📁 DEBUG: onFolderUploaded call completed');
+        console.log('📁 FIXED: onFolderUploaded call completed');
       }
 
       toast({
@@ -287,7 +286,7 @@ const FileUploadManager = ({
       });
 
     } catch (error) {
-      console.error('📁 DEBUG: Folder upload failed:', error);
+      console.error('📁 FIXED: Folder upload failed:', error);
       const errorMessage = error.toString();
       setErrors(prev => [...prev, errorMessage]);
       

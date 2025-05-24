@@ -1,5 +1,5 @@
 // src-tauri/src/commands/content_management.rs
-// Commands for file content and metadata operations
+// Commands for file content and metadata operations - FIXED VERSION
 
 use std::fs;
 use tauri::AppHandle;

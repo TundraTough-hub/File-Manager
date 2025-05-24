@@ -1,5 +1,5 @@
 // src-tauri/src/commands/types.rs
-// Shared types used across all command modules
+// Shared types used across all command modules - FIXED VERSION
 
 use serde::{Deserialize, Serialize};
 
@@ -66,6 +66,7 @@ pub struct ImportResult {
     pub extension: Option<String>,
     pub size: u64,
     pub is_binary: bool,
+    pub file_path: Option<String>, // FIXED: Add file_path to ImportResult
 }
 
 #[derive(Debug, Serialize)]
