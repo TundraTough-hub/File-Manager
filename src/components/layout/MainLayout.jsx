@@ -1,5 +1,5 @@
 // src/components/layout/MainLayout.jsx
-// Main layout component that contains the toolbar and main content area
+// Main layout component with debug panel for troubleshooting
 
 import React, { useState } from 'react';
 import { 
@@ -12,7 +12,10 @@ import {
   TabPanel,
   VStack,
   HStack,
-  Text
+  Text,
+  Switch,
+  FormControl,
+  FormLabel,
 } from '@chakra-ui/react';
 import Toolbar from '../Toolbar';
 import Sidebar from '../sidebar/Sidebar';
@@ -21,6 +24,7 @@ import ClientManager from '../ClientManager';
 import CodeRunner from '../CodeRunner';
 import DataFilePreview from '../DataFilePreview';
 import FileSyncButton from '../FileSyncButton';
+import DebugPanel from '../DebugPanel';
 
 const MainLayout = ({
   // State
@@ -47,6 +51,10 @@ const MainLayout = ({
   handleFilesSync,
 }) => {
   const [activeTab, setActiveTab] = useState(0);
+  const [showDebugPanel, setShowDebugPanel] = useState(true); // Show by default for troubleshooting
+
+  const selectedNodeData = nodes.find(n => n.id === selectedNode);
+  const currentProjectId = selectedNodeData?.project_id || selectedNodeData?.projectId;
 
   return (
     <Flex h="100vh" direction="column">
@@ -77,6 +85,32 @@ const MainLayout = ({
         />
         
         <Box flex="1" display="flex" flexDirection="column" overflow="auto">
+          {/* Debug Panel Toggle */}
+          <Box p={2} borderBottom="1px" borderColor="gray.200" _dark={{ borderColor: "gray.700" }}>
+            <FormControl display="flex" alignItems="center" w="auto">
+              <FormLabel fontSize="sm" mb="0" mr={2}>Debug Panel:</FormLabel>
+              <Switch 
+                size="sm" 
+                isChecked={showDebugPanel} 
+                onChange={(e) => setShowDebugPanel(e.target.checked)} 
+                colorScheme="orange"
+              />
+            </FormControl>
+          </Box>
+
+          {/* Debug Panel */}
+          {showDebugPanel && (
+            <Box p={4} borderBottom="1px" borderColor="gray.200" _dark={{ borderColor: "gray.700" }}>
+              <DebugPanel
+                projects={projects}
+                nodes={nodes}
+                clients={clients}
+                selectedNode={selectedNode}
+                projectId={currentProjectId}
+              />
+            </Box>
+          )}
+          
           <Tabs 
             index={activeTab} 
             onChange={setActiveTab}
@@ -106,14 +140,10 @@ const MainLayout = ({
                     <HStack justify="space-between" align="center">
                       <Text fontSize="lg" fontWeight="medium">Python Code Runner</Text>
                       <FileSyncButton
-                        projectId={nodes.find(n => n.id === selectedNode)?.project_id || 
-                                  nodes.find(n => n.id === selectedNode)?.projectId}
+                        projectId={currentProjectId}
                         onFilesSync={handleFilesSync}
                         nodes={nodes}
-                        currentProject={projects.find(p => 
-                          p.id === (nodes.find(n => n.id === selectedNode)?.project_id || 
-                                  nodes.find(n => n.id === selectedNode)?.projectId)
-                        )}
+                        currentProject={projects.find(p => p.id === currentProjectId)}
                       />
                     </HStack>
                   </Box>
@@ -124,6 +154,7 @@ const MainLayout = ({
                       nodes={nodes}
                       selectedNode={selectedNode}
                       projects={projects}
+                      onFilesSync={handleFilesSync}
                     />
                   </Box>
                 </VStack>
@@ -142,7 +173,7 @@ const MainLayout = ({
               <TabPanel h="100%">
                 <DataFilePreview 
                   node={nodes.find(n => n.id === selectedNode)}
-                  projectId={nodes.find(n => n.id === selectedNode)?.project_id}
+                  projectId={currentProjectId}
                 />
               </TabPanel>
             </TabPanels>

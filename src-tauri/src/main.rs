@@ -1,4 +1,4 @@
-// src-tauri/src/main.rs - Updated with Python execution commands
+// src-tauri/src/main.rs - Updated with rebuild command
 #![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
@@ -43,9 +43,10 @@ fn main() {
             commands::check_python_installation,
             commands::install_python_package,
             
-            // File sync - NEW COMMANDS
+            // File sync - UPDATED COMMANDS
             commands::sync_external_files,
             commands::auto_sync_project_files,
+            commands::rebuild_project_tree,
             
             // Utility and maintenance
             commands::validate_project_structure,
