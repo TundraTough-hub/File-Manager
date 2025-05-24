@@ -1,4 +1,4 @@
-// Enhanced CodeRunner.jsx with REAL Python execution
+// Complete CodeRunner.jsx with all execution controls and auto-sync
 import { useState, useRef, useEffect } from 'react';
 import {
   Box,
@@ -36,7 +36,7 @@ import {
   FiTerminal,
 } from 'react-icons/fi';
 
-const CodeRunner = ({ nodes, selectedNode, projects }) => {
+const CodeRunner = ({ nodes, selectedNode, projects, onFilesSync }) => {
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState('');
   const [executionQueue, setExecutionQueue] = useState([]);
@@ -46,6 +46,7 @@ const CodeRunner = ({ nodes, selectedNode, projects }) => {
   const [availablePythonCommands, setAvailablePythonCommands] = useState([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const [clearOnRun, setClearOnRun] = useState(true);
+  const [autoSyncAfterRun, setAutoSyncAfterRun] = useState(true);
   
   const outputRef = useRef(null);
   const toast = useToast();
@@ -80,6 +81,47 @@ const CodeRunner = ({ nodes, selectedNode, projects }) => {
       console.error('❌ Failed to check Python installation:', error);
       setPythonInstalled(false);
       appendOutput(`❌ Failed to check Python installation: ${error}\n`);
+    }
+  };
+
+  // Auto-sync files after execution
+  const autoSyncFiles = async (projectId) => {
+    if (!autoSyncAfterRun || !projectId) return;
+    
+    try {
+      appendOutput(`\n🔄 Auto-syncing files...\n`);
+      
+      const newFiles = await invoke('sync_external_files', {
+        projectId,
+      });
+      
+      if (newFiles.length > 0) {
+        appendOutput(`✅ Found ${newFiles.length} new file(s) created by your script\n`);
+        
+        // Notify parent component to update the file tree
+        if (onFilesSync) {
+          onFilesSync(newFiles);
+        }
+        
+        // Show new files in output
+        newFiles.forEach(file => {
+          const fileType = file.type === 'folder' ? '📁' : '📄';
+          appendOutput(`   ${fileType} ${file.name}\n`);
+        });
+        
+        toast({
+          title: 'Files auto-synced',
+          description: `${newFiles.length} new file(s) added to project`,
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+      } else {
+        appendOutput(`✅ No new files created\n`);
+      }
+    } catch (error) {
+      console.error('❌ Auto-sync failed:', error);
+      appendOutput(`⚠️ Auto-sync failed: ${error}\n`);
     }
   };
 
@@ -147,6 +189,9 @@ const CodeRunner = ({ nodes, selectedNode, projects }) => {
       
       if (result.success) {
         appendOutput(`✅ Completed successfully in ${duration}ms\n`);
+        
+        // Auto-sync files after successful execution
+        await autoSyncFiles(projectId);
       } else {
         appendOutput(`❌ Execution failed (Exit code: ${result.exit_code || 'unknown'})\n`);
       }
@@ -340,6 +385,25 @@ const CodeRunner = ({ nodes, selectedNode, projects }) => {
     }
   };
 
+  // Manual sync function
+  const manualSyncFiles = async () => {
+    const selectedNodeData = nodes.find(n => n.id === selectedNode);
+    const projectId = selectedNodeData?.project_id || selectedNodeData?.projectId;
+    
+    if (!projectId) {
+      toast({
+        title: 'No project selected',
+        description: 'Please select a file from a project to sync',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    
+    await autoSyncFiles(projectId);
+  };
+
   const addToQueue = (nodeId) => {
     if (!executionQueue.includes(nodeId)) {
       setExecutionQueue(prev => [...prev, nodeId]);
@@ -416,6 +480,15 @@ const CodeRunner = ({ nodes, selectedNode, projects }) => {
         </VStack>
 
         <HStack spacing={2}>
+          <Tooltip label="Manual file sync">
+            <IconButton
+              icon={<FiRefreshCw />}
+              size="sm"
+              variant="outline"
+              colorScheme="purple"
+              onClick={manualSyncFiles}
+            />
+          </Tooltip>
           <Tooltip label="Refresh Python check">
             <IconButton
               icon={<FiRefreshCw />}
@@ -459,6 +532,11 @@ const CodeRunner = ({ nodes, selectedNode, projects }) => {
         <FormControl display="flex" alignItems="center" w="auto">
           <FormLabel fontSize="sm" mb="0" mr={2}>Clear on run:</FormLabel>
           <Switch size="sm" isChecked={clearOnRun} onChange={(e) => setClearOnRun(e.target.checked)} />
+        </FormControl>
+        
+        <FormControl display="flex" alignItems="center" w="auto">
+          <FormLabel fontSize="sm" mb="0" mr={2}>Auto-sync files:</FormLabel>
+          <Switch size="sm" isChecked={autoSyncAfterRun} onChange={(e) => setAutoSyncAfterRun(e.target.checked)} />
         </FormControl>
       </HStack>
 

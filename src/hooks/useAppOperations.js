@@ -1,5 +1,5 @@
 // src/hooks/useAppOperations.js
-// Custom hook for all app operations (CRUD operations for projects, nodes, files)
+// Fixed version that properly tracks file paths for the UI hierarchy
 
 import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
@@ -15,6 +15,26 @@ export const useAppOperations = ({
   setSelectedNode,
   pendingOperationsRef,
 }) => {
+  
+  // Helper function to build the relative path for a node based on its hierarchy
+  const buildNodePath = useCallback((parentId, name, projectId) => {
+    if (!parentId) return name;
+    
+    // Find the parent node
+    const parentNode = nodes.find(n => n.id === parentId);
+    if (!parentNode || parentNode.hidden || parentNode.name === '__PROJECT_ROOT__') {
+      return name;
+    }
+    
+    // Recursively build the path
+    const parentPath = buildNodePath(
+      parentNode.parent_id || parentNode.parentId, 
+      parentNode.name, 
+      projectId
+    );
+    
+    return parentPath ? `${parentPath}/${name}` : name;
+  }, [nodes]);
   
   const createProject = useCallback(async (name, clientId = null) => {
     const operationId = 'create_project_' + Date.now();
@@ -80,6 +100,7 @@ export const useAppOperations = ({
     try {
       pendingOperationsRef.current.add(operationId);
       
+      // Check for name conflicts in the same parent
       const siblings = nodes.filter(node => 
         (node.parent_id === parentId || node.parentId === parentId) &&
         (node.project_id === projectId || node.projectId === projectId)
@@ -94,11 +115,15 @@ export const useAppOperations = ({
         counter++;
       }
       
+      // Create the folder via backend
       const folderId = await invoke('create_folder', {
         parentId: parentId || '',
         name: finalName,
         projectId
       });
+      
+      // Build the relative path for this folder
+      const relativePath = buildNodePath(parentId, finalName, projectId);
       
       const newNode = {
         id: folderId,
@@ -107,10 +132,12 @@ export const useAppOperations = ({
         parent_id: parentId,
         project_id: projectId,
         shouldRename: shouldRename,
-        file_path: finalName,
+        file_path: relativePath, // Store the full relative path
         extension: null,
         hidden: false,
       };
+      
+      console.log('📁 Created folder with path:', relativePath);
       
       const nodeExists = nodes.some(n => n.id === folderId);
       if (!nodeExists) {
@@ -124,7 +151,7 @@ export const useAppOperations = ({
     } finally {
       pendingOperationsRef.current.delete(operationId);
     }
-  }, [nodes, setNodes, pendingOperationsRef]);
+  }, [nodes, setNodes, pendingOperationsRef, buildNodePath]);
   
   const createFile = useCallback(async (parentId, name, projectId, shouldRename = false) => {
     const operationId = 'create_file_' + Date.now();
@@ -132,6 +159,7 @@ export const useAppOperations = ({
     try {
       pendingOperationsRef.current.add(operationId);
       
+      // Check for name conflicts in the same parent
       const siblings = nodes.filter(node => 
         (node.parent_id === parentId || node.parentId === parentId) &&
         (node.project_id === projectId || node.projectId === projectId)
@@ -153,17 +181,22 @@ export const useAppOperations = ({
         counter++;
       }
       
+      // Extract extension
       let extension = '';
       const parts = finalName.split('.');
       if (parts.length > 1) {
         extension = parts[parts.length - 1];
       }
       
+      // Create the file via backend
       const fileId = await invoke('create_file', {
         parentId: parentId || '',
         name: finalName,
         projectId
       });
+      
+      // Build the relative path for this file
+      const relativePath = buildNodePath(parentId, finalName, projectId);
       
       const newNode = {
         id: fileId,
@@ -173,9 +206,11 @@ export const useAppOperations = ({
         parent_id: parentId,
         project_id: projectId,
         shouldRename: shouldRename,
-        file_path: finalName,
+        file_path: relativePath, // Store the full relative path
         hidden: false,
       };
+      
+      console.log('📄 Created file with path:', relativePath);
       
       const nodeExists = nodes.some(n => n.id === fileId);
       if (!nodeExists) {
@@ -189,7 +224,7 @@ export const useAppOperations = ({
     } finally {
       pendingOperationsRef.current.delete(operationId);
     }
-  }, [nodes, setNodes, pendingOperationsRef]);
+  }, [nodes, setNodes, pendingOperationsRef, buildNodePath]);
   
   const renameNode = useCallback(async (nodeId, newName) => {
     const operationId = 'rename_node_' + Date.now();
@@ -206,6 +241,7 @@ export const useAppOperations = ({
         throw new Error('Node not found');
       }
       
+      // Check for name conflicts in the same parent
       const siblings = nodes.filter(node => 
         (node.parent_id === nodeToRename.parent_id || node.parentId === nodeToRename.parentId) &&
         (node.project_id === nodeToRename.project_id || node.projectId === nodeToRename.projectId) &&
@@ -218,6 +254,7 @@ export const useAppOperations = ({
         throw new Error(`A ${nodeToRename.type} with this name already exists`);
       }
       
+      // Rename via backend
       await invoke('rename_node', { 
         nodeId, 
         newName: newName.trim(),
@@ -225,6 +262,7 @@ export const useAppOperations = ({
         projectId: nodeToRename.project_id || nodeToRename.projectId
       });
       
+      // Update the node and recalculate its path
       setNodes(prevNodes => prevNodes.map(node => {
         if (node.id === nodeId) {
           let extension = node.extension;
@@ -236,16 +274,51 @@ export const useAppOperations = ({
               extension = null;
             }
           }
+          
+          // Recalculate the file path with the new name
+          const newPath = buildNodePath(
+            node.parent_id || node.parentId, 
+            newName.trim(), 
+            node.project_id || node.projectId
+          );
+          
           return { 
             ...node, 
             name: newName.trim(), 
             extension,
-            file_path: newName.trim(),
+            file_path: newPath,
             shouldRename: false,
           };
         }
         return node;
       }));
+      
+      // Update paths for all descendant nodes
+      const updateDescendantPaths = (parentNodeId) => {
+        setTimeout(() => {
+          setNodes(prevNodes => prevNodes.map(node => {
+            if ((node.parent_id === parentNodeId || node.parentId === parentNodeId)) {
+              const newPath = buildNodePath(
+                parentNodeId,
+                node.name,
+                node.project_id || node.projectId
+              );
+              
+              // Recursively update children
+              if (node.type === 'folder') {
+                updateDescendantPaths(node.id);
+              }
+              
+              return { ...node, file_path: newPath };
+            }
+            return node;
+          }));
+        }, 0);
+      };
+      
+      if (nodeToRename.type === 'folder') {
+        updateDescendantPaths(nodeId);
+      }
       
       console.log('✅ Node renamed successfully');
     } catch (error) {
@@ -254,7 +327,7 @@ export const useAppOperations = ({
     } finally {
       pendingOperationsRef.current.delete(operationId);
     }
-  }, [nodes, setNodes, pendingOperationsRef]);
+  }, [nodes, setNodes, pendingOperationsRef, buildNodePath]);
   
   const deleteNode = useCallback(async (nodeId) => {
     const operationId = 'delete_node_' + Date.now();
@@ -262,6 +335,7 @@ export const useAppOperations = ({
     try {
       pendingOperationsRef.current.add(operationId);
       
+      // Get all child node IDs recursively
       const getChildNodeIds = (parentId) => {
         const children = nodes.filter(node => 
           node.parentId === parentId || node.parent_id === parentId
@@ -286,8 +360,10 @@ export const useAppOperations = ({
         });
       }
       
+      // Remove nodes from state
       setNodes(prevNodes => prevNodes.filter(node => !nodeIdsToDelete.includes(node.id)));
       
+      // Check if this was a project root
       const projectToDelete = projects.find(p => 
         p.rootId === nodeId || p.root_id === nodeId
       );
@@ -387,6 +463,9 @@ export const useAppOperations = ({
       pendingOperationsRef.current.add(operationId);
       console.log('📁 Processing uploaded file:', uploadedFile);
       
+      // Calculate the proper file path for uploaded files
+      const filePath = uploadedFile.file_path || uploadedFile.name;
+      
       const newNode = {
         id: uploadedFile.id || uuidv4(),
         name: uploadedFile.name,
@@ -394,7 +473,7 @@ export const useAppOperations = ({
         extension: uploadedFile.extension || null,
         parent_id: uploadedFile.parent_id || null,
         project_id: uploadedFile.project_id,
-        file_path: uploadedFile.file_path || uploadedFile.name,
+        file_path: filePath,
         size: uploadedFile.size || 0,
         hidden: false,
         is_binary: uploadedFile.is_binary || false,
@@ -407,7 +486,7 @@ export const useAppOperations = ({
           return prevNodes;
         }
         
-        console.log('✅ Adding uploaded file to nodes array');
+        console.log('✅ Adding uploaded file to nodes array with path:', filePath);
         return [...prevNodes, newNode];
       });
       
@@ -427,7 +506,11 @@ export const useAppOperations = ({
       
       setNodes(prevNodes => {
         const existingIds = new Set(prevNodes.map(n => n.id));
-        const newUniqueFiles = newFiles.filter(file => !existingIds.has(file.id));
+        const newUniqueFiles = newFiles.filter(file => !existingIds.has(file.id))
+          .map(file => ({
+            ...file,
+            file_path: file.file_path || file.name, // Ensure file_path is set
+          }));
         
         if (newUniqueFiles.length > 0) {
           console.log('✅ Adding', newUniqueFiles.length, 'new synced files to state');
@@ -553,6 +636,9 @@ export const useAppOperations = ({
         throw new Error('Node not found');
       }
       
+      // Calculate new file path
+      const newPath = buildNodePath(newParentId, nodeToMove.name, newProjectId);
+      
       setNodes(prevNodes => 
         prevNodes.map(node => 
           node.id === nodeId 
@@ -561,20 +647,21 @@ export const useAppOperations = ({
                 parent_id: newParentId, 
                 parentId: newParentId,
                 project_id: newProjectId,
-                projectId: newProjectId
+                projectId: newProjectId,
+                file_path: newPath
               } 
             : node
         )
       );
       
-      console.log('✅ Node moved successfully');
+      console.log('✅ Node moved successfully to path:', newPath);
     } catch (error) {
       console.error('❌ Failed to move node:', error);
       throw error;
     } finally {
       pendingOperationsRef.current.delete(operationId);
     }
-  }, [nodes, setNodes, pendingOperationsRef]);
+  }, [nodes, setNodes, pendingOperationsRef, buildNodePath]);
   
   const duplicateNode = useCallback(async (nodeId) => {
     const operationId = 'duplicate_node_' + Date.now();
@@ -601,16 +688,23 @@ export const useAppOperations = ({
             return `${originalNode.name} (Copy)`;
           })();
       
+      // Calculate new file path
+      const newPath = buildNodePath(
+        originalNode.parent_id || originalNode.parentId, 
+        newName, 
+        originalNode.project_id || originalNode.projectId
+      );
+      
       const newNode = {
         ...originalNode,
         id: newNodeId,
         name: newName,
-        file_path: newName
+        file_path: newPath
       };
       
       setNodes(prevNodes => [...prevNodes, newNode]);
       
-      console.log('✅ Node duplicated successfully');
+      console.log('✅ Node duplicated successfully with path:', newPath);
       return newNodeId;
     } catch (error) {
       console.error('❌ Failed to duplicate node:', error);
@@ -618,7 +712,7 @@ export const useAppOperations = ({
     } finally {
       pendingOperationsRef.current.delete(operationId);
     }
-  }, [nodes, setNodes, pendingOperationsRef]);
+  }, [nodes, setNodes, pendingOperationsRef, buildNodePath]);
 
   return {
     createProject,
