@@ -20,6 +20,7 @@ fn main() {
             commands::create_file,
             commands::rename_node,
             commands::delete_node,
+            commands::delete_project_directory,
             
             // Content management
             commands::get_file_content,
