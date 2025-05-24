@@ -11,6 +11,7 @@ import {
   FiMove,
   FiCopy,
   FiTrash2,
+  FiInfo, // Add this import
 } from 'react-icons/fi';
 
 const FileTreeContextMenu = ({
@@ -138,6 +139,24 @@ const FileTreeContextMenu = ({
         >
           <Icon as={FiCopy} mr={2} />
           Duplicate
+        </Box>
+        {/* Add Properties menu item here - available for all file types */}
+        <Box
+          px={3}
+          py={2}
+          cursor="pointer"
+          _hover={{ bg: 'gray.100', _dark: { bg: 'gray.700' } }}
+          onClick={() => {
+            // Add file properties/details view
+            console.log('Show properties for:', node);
+            closeContextMenu();
+          }}
+          fontSize="sm"
+          display="flex"
+          alignItems="center"
+        >
+          <Icon as={FiInfo} mr={2} />
+          Properties
         </Box>
         <Box
           px={3}

@@ -52,6 +52,13 @@ export const getFileIcon = (node) => {
   if (['pdf', 'doc', 'docx'].includes(ext)) return FiFileText;
   if (['rtf', 'odt'].includes(ext)) return FiFileText;
   
+  // Add after line 50 (after existing extensions):
+  if (['r', 'rmd'].includes(ext)) return FiCode; // R files
+  if (['sql'].includes(ext)) return FiDatabase; // SQL files
+  if (['yaml', 'yml'].includes(ext)) return FiSettings; // Config files
+  if (['log'].includes(ext)) return FiFileText; // Log files
+  if (['sh', 'bat', 'cmd'].includes(ext)) return FiTerminal; // Scripts
+
   // Web files
   if (['html', 'htm', 'xml'].includes(ext)) return FiGlobe;
   if (['css', 'scss', 'sass', 'less'].includes(ext)) return FiGlobe;

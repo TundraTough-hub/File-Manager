@@ -102,15 +102,27 @@ export const useFileTreeLogic = ({
     setIsRenaming(true);
   }, [isRenaming]);
   
-  const handleRename = useCallback(async () => {
-    if (!newName.trim() || !renameId) {
-      setRenameError('Name cannot be empty');
-      return;
+  // Around line 100, replace the existing handleRename function:
+const handleRename = useCallback(async () => {
+  if (!newName.trim() || !renameId) {
+    setRenameError('Name cannot be empty');
+    return;
+  }
+
+  // Validate file extension if it's a file
+  const nodeToRename = nodes.find(n => n.id === renameId);
+    if (nodeToRename?.type === 'file') {
+      const hasExtension = newName.includes('.');
+      if (!hasExtension) {
+        setRenameError('Files must have an extension (e.g., .py, .txt)');
+        return;
+      }
     }
-    
+
     try {
       setRenameError('');
       await renameNode(renameId, newName.trim());
+      // ... rest of existing code
       setRenameId(null);
       setIsRenaming(false);
       
