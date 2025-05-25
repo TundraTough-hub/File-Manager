@@ -1,6 +1,4 @@
-// src/components/layout/MainLayout.jsx
-// Main layout component with debug panel for troubleshooting
-
+// src/components/layout/MainLayout.jsx - FIXED: Accept state setters
 import React, { useState } from 'react';
 import { 
   Flex, 
@@ -35,6 +33,10 @@ const MainLayout = ({
   setSelectedNode,
   setClients,
   
+  // ADDED: State setters for debug panel
+  setProjects,
+  setNodes,
+  
   // Operations
   createProject,
   createFolder,
@@ -47,7 +49,6 @@ const MainLayout = ({
   duplicateProject,
   moveNode,
   duplicateNode,
-  setNodes,
   handleFilesSync,
 }) => {
   const [activeTab, setActiveTab] = useState(0);
@@ -107,6 +108,8 @@ const MainLayout = ({
                 clients={clients}
                 selectedNode={selectedNode}
                 projectId={currentProjectId}
+                setProjects={setProjects}
+                setNodes={setNodes}
               />
             </Box>
           )}

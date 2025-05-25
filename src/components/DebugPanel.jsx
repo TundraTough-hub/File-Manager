@@ -1,6 +1,4 @@
-// src/components/DebugPanel.jsx
-// Main debug panel component that orchestrates all debug functionality
-
+// src/components/DebugPanel.jsx - FIXED: With repair tools integration
 import React, { useState, useEffect } from 'react';
 import {
   VStack,
@@ -23,17 +21,23 @@ import {
   FiSearch,
   FiTool,
   FiDatabase,
+  FiSettings,
+  FiFile, 
+  FiFolder,
 } from 'react-icons/fi';
 
 // Import debug sub-components
 import AppInfoPanel from './Debug/AppInfoPanel';
 import ProjectAnalyzer from './Debug/ProjectAnalyzer';
 import OrphanDetector from './Debug/OrphanDetector';
+import RepairTools from './Debug/RepairTools';
 import { useDebugOperations } from './Debug/hooks/useDebugOperations';
+import { useRepairOperations } from './Debug/hooks/useRepairOperations';
 
-import { FiFile, FiFolder } from 'react-icons/fi';
+// Add this import to DebugPanel.jsx
+import ProjectDiagnostic from './Debug/ProjectDiagnostic';
 
-// Simple fallback icon functions (replace with your actual file icon utilities)
+// Simple fallback icon functions
 const getFileIcon = (node) => {
   if (!node) return FiFile;
   return node.type === 'folder' ? FiFolder : FiFile;
@@ -50,6 +54,9 @@ const DebugPanel = ({
   nodes = [], 
   clients = [],
   onReloadApp,
+  // Add these props to handle state updates
+  setProjects,
+  setNodes,
 }) => {
   // Debug operations hook
   const {
@@ -65,6 +72,14 @@ const DebugPanel = ({
     findProjectRoot,
     getAllOrphanedFiles,
   } = useDebugOperations({ projects, nodes, clients });
+
+  // Repair operations hook
+  const repairOperations = useRepairOperations({
+    projects,
+    nodes,
+    setProjects,
+    setNodes,
+  });
 
   // State management
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -97,7 +112,7 @@ const DebugPanel = ({
   const totalOrphans = orphanedFiles.length + unassignedOrphanedFiles.length;
   const hasIssues = totalOrphans > 0 || !projectRoot;
 
-  // Tab data with issue counts
+  // Tab data with issue counts - INCLUDING REPAIR TOOLS
   const tabData = [
     {
       label: 'App Info',
@@ -153,6 +168,38 @@ const DebugPanel = ({
       badgeCount: totalOrphans > 0 ? totalOrphans : null,
       badgeColor: totalOrphans > 0 ? 'red' : 'green',
     },
+    // NEW: Repair Tools tab
+    {
+      label: 'Repair Tools',
+      icon: FiSettings,
+      component: RepairTools,
+      props: {
+        currentProject,
+        projectRoot,
+        orphanedFiles,
+        onRepairProjectRoot: repairOperations.repairOrphanedFiles,
+        onRebuildProject: repairOperations.rebuildProjectTree,
+        onCreateMissingRoot: repairOperations.createMissingRoot,
+        onForceRefresh: repairOperations.forceRefreshProject,
+        loading: repairOperations.loading,
+      },
+      badgeCount: hasIssues ? 'Fix' : null,
+      badgeColor: hasIssues ? 'red' : 'green',
+    },
+
+    {
+      label: 'Diagnostic',
+      icon: FiSearch,
+      component: ProjectDiagnostic,
+      props: {
+        currentProject,
+        nodes,
+        onForceRebuild: repairOperations.rebuildProjectTree,
+        loading: repairOperations.loading,
+      },
+      badgeCount: null,
+    },
+
   ];
 
   return (
@@ -254,10 +301,12 @@ const DebugPanel = ({
 
         {/* Footer Status */}
         <Box pt={2} borderTop="1px solid" borderColor={borderColor}>
-          {loading ? (
+          {(loading || repairOperations.loading) ? (
             <Alert status="info" size="sm">
               <AlertIcon />
-              <Text fontSize="sm">Processing debug operations...</Text>
+              <Text fontSize="sm">
+                {repairOperations.loading ? 'Repairing project...' : 'Processing debug operations...'}
+              </Text>
             </Alert>
           ) : hasIssues ? (
             <Alert status="warning" size="sm">
@@ -267,7 +316,7 @@ const DebugPanel = ({
                 <Text fontSize="xs" color="gray.600">
                   {totalOrphans > 0 && `${totalOrphans} orphaned files found. `}
                   {!projectRoot && currentProject && 'Missing project root. '}
-                  Check the tabs above for details and fixes.
+                  Check the Repair Tools tab to fix these issues.
                 </Text>
               </VStack>
             </Alert>

@@ -1,4 +1,4 @@
-// src/App.jsx - Refactored and simplified
+// src/App.jsx - FIXED: Pass state setters to MainLayout
 import React from 'react';
 import { ChakraProvider } from '@chakra-ui/react';
 import { useAppState } from './hooks/useAppState';
@@ -61,6 +61,10 @@ function App() {
         setSelectedNode={setSelectedNode}
         setClients={setClients}
         
+        // ADDED: Pass state setters for debug panel
+        setProjects={setProjects}
+        setNodes={setNodes}
+        
         // Operations
         createProject={createProject}
         createFolder={createFolder}
@@ -73,7 +77,6 @@ function App() {
         duplicateProject={duplicateProject}
         moveNode={moveNode}
         duplicateNode={duplicateNode}
-        setNodes={setNodes}
         handleFilesSync={handleFilesSync}
       />
     </ChakraProvider>
