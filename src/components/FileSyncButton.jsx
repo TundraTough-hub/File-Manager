@@ -1,6 +1,4 @@
-// src/components/FileSyncButton.jsx
-// Main file sync component - orchestrates sync operations
-
+// src/components/FileSyncButton.jsx - FIXED: Better result handling
 import React from 'react';
 import { useDisclosure } from '@chakra-ui/react';
 import SyncControls from './FileSync/SyncControls';
@@ -41,26 +39,38 @@ const FileSyncButton = ({
   });
 
   /**
-   * Handle normal sync and show results
+   * Handle normal sync and show results if there are new files
    */
   const handleNormalSyncWithModal = async () => {
+    console.log('🔄 BUTTON: Starting normal sync...');
+    
     const result = await handleNormalSync();
     
-    if (result.success && result.hasNewFiles) {
-      onOpen(); // Show results modal
+    console.log('🔄 BUTTON: Sync result:', result);
+    
+    // Show modal only if we found new files
+    if (result.success && result.files && result.files.length > 0) {
+      console.log('🔄 BUTTON: Opening results modal for', result.files.length, 'files');
+      onOpen();
     }
     
     return result;
   };
 
   /**
-   * Handle full rebuild and show results
+   * Handle full rebuild and show results if there are files
    */
   const handleFullRebuildWithModal = async () => {
+    console.log('🔨 BUTTON: Starting full rebuild...');
+    
     const result = await handleFullRebuild();
     
-    if (result.success && result.hasNewFiles) {
-      onOpen(); // Show results modal
+    console.log('🔨 BUTTON: Rebuild result:', result);
+    
+    // Show modal only if we found files
+    if (result.success && result.files && result.files.length > 0) {
+      console.log('🔨 BUTTON: Opening results modal for', result.files.length, 'files');
+      onOpen();
     }
     
     return result;
@@ -76,6 +86,15 @@ const FileSyncButton = ({
   };
 
   const syncSummary = getSyncSummary();
+
+  console.log('🔄 BUTTON: Current state:', {
+    projectId,
+    syncing,
+    rebuilding,
+    syncedFilesCount: syncedFiles?.length || 0,
+    syncType,
+    hasError: !!error
+  });
 
   return (
     <>
@@ -93,8 +112,8 @@ const FileSyncButton = ({
       <SyncResultsModal
         isOpen={isOpen}
         onClose={handleModalClose}
-        syncedFiles={syncedFiles}
-        syncType={syncType}
+        syncedFiles={syncedFiles || []}
+        syncType={syncType || 'normal'}
         summary={syncSummary}
       />
     </>

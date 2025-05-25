@@ -214,32 +214,76 @@ export const useFileOperations = ({
     }
   }, [setNodes, pendingOperationsRef]);
 
-  const handleFilesSync = useCallback(async (newFiles) => {
+  // Add this to your useFileOperations.js hook - FIXED handleFilesSync
+  const handleFilesSync = useCallback(async (newFiles, options = {}) => {
     const operationId = 'files_sync_' + Date.now();
     
     try {
       pendingOperationsRef.current.add(operationId);
-      console.log('🔄 Processing synced files:', newFiles);
+      console.log('🔄 SYNC: Processing synced files:', newFiles);
+      console.log('🔄 SYNC: Sync options:', options);
       
+      if (!newFiles || newFiles.length === 0) {
+        console.log('🔄 SYNC: No files to sync');
+        return;
+      }
+
       setNodes(prevNodes => {
+        // If this is a full rebuild, we need to replace ALL nodes for this project
+        if (options.isFullRebuild && newFiles.length > 0) {
+          const projectId = newFiles[0].project_id || newFiles[0].projectId;
+          
+          if (projectId) {
+            console.log('🔨 SYNC: Full rebuild - replacing all nodes for project:', projectId);
+            
+            // Keep nodes from other projects, replace all nodes for this project
+            const otherProjectNodes = prevNodes.filter(node => 
+              (node.project_id !== projectId && node.projectId !== projectId)
+            );
+            
+            const processedNewFiles = newFiles.map(file => ({
+              ...file,
+              id: file.id || file.node_id,
+              project_id: file.project_id || file.projectId || projectId,
+              projectId: file.project_id || file.projectId || projectId,
+              parent_id: file.parent_id || file.parentId,
+              parentId: file.parent_id || file.parentId,
+              file_path: file.file_path || file.name,
+              hidden: file.hidden || false,
+            }));
+            
+            console.log('🔨 SYNC: Rebuilt project with', processedNewFiles.length, 'files');
+            return [...otherProjectNodes, ...processedNewFiles];
+          }
+        }
+        
+        // For normal sync, add only new files that don't already exist
         const existingIds = new Set(prevNodes.map(n => n.id));
-        const newUniqueFiles = newFiles.filter(file => !existingIds.has(file.id))
+        const newUniqueFiles = newFiles
+          .filter(file => !existingIds.has(file.id || file.node_id))
           .map(file => ({
             ...file,
-            file_path: file.file_path || file.name, // Ensure file_path is set
+            id: file.id || file.node_id,
+            project_id: file.project_id || file.projectId,
+            projectId: file.project_id || file.projectId,
+            parent_id: file.parent_id || file.parentId,
+            parentId: file.parent_id || file.parentId,
+            file_path: file.file_path || file.name,
+            hidden: file.hidden || false,
           }));
         
         if (newUniqueFiles.length > 0) {
-          console.log('✅ Adding', newUniqueFiles.length, 'new synced files to state');
+          console.log('✅ SYNC: Adding', newUniqueFiles.length, 'new synced files to state');
           return [...prevNodes, ...newUniqueFiles];
         }
         
+        console.log('🔄 SYNC: No new unique files to add');
         return prevNodes;
       });
       
-      console.log('✅ File sync completed successfully');
+      console.log('✅ SYNC: File sync completed successfully');
     } catch (error) {
-      console.error('❌ Failed to process synced files:', error);
+      console.error('❌ SYNC: Failed to process synced files:', error);
     } finally {
       pendingOperationsRef.current.delete(operationId);
     }
